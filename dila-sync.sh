@@ -241,10 +241,10 @@ then
 		fi
 	fi
 
-	# # Init git repo
-	# echo "Initializing git repository..."
-	# git init "$script_dir/stock" && git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Init with global stock [$stock_date]"
-	# command_status "Error while initializing git repository"
+	# Init git repo
+	echo "Initializing git repository..."
+	g=$(git init "$script_dir/stock" && git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Init with global stock [$stock_date]")
+	command_status "Error while initializing git repository"
 
 fi
 
@@ -316,10 +316,10 @@ else
 				fi
 			done <<< "$deletion_lists"
 
-			# # Commit in git repo
-			# echo "Commiting..."
-			# git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Apply delta [$timestamp]"
-			# command_status "Error while comitting delta in git repository"
+			# Commit in git repo
+			echo "Commiting..."
+			g=$(git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Apply delta [$timestamp]")
+			command_status "Error while comitting delta in git repository"
 
 			# Finally replace stock_date by the current delta timestamp
 			local_stock_date=$timestamp
