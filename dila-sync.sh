@@ -140,7 +140,7 @@ remote=$config[remote]
 debug "\n${txtund}Remote:${txtrst} $remote\n" 1
 
 echo -n "Fetching stock index... "
-wgetoutput=$(wget -q -O - $remote)
+wgetoutput=$(wget -T 10 -q -O - $remote)
 command_status "Error while getting remote data."
 
 # Now let's get only the actual urls
@@ -175,7 +175,7 @@ echo "${txtund}Deltas:${txtrst} $deltas_count"
 # Debug deltas if not empty
 if [ -n $deltas ]
 then
-	debug "${txtpnk}<deltas>\n${txtcyn}$_deltas\n${txtpnk}</deltas>${txtrst} \n" 1
+	debug "${txtpnk}<deltas>\n${txtcyn}$deltas\n${txtpnk}</deltas>${txtrst} \n" 1
 fi
 
 # Filter out perished deltas
@@ -187,12 +187,15 @@ while read delta; do
 		fresh_deltas="$fresh_deltas$delta\n"
 	fi
 done <<< "$deltas"
+# Remove empty lines if any
+fresh_deltas=$(echo $fresh_deltas | sed 's/^\s*$//g')
 
 # Count them
 if [ -z $fresh_deltas ]
 then
 	fresh_deltas_count=0
 else
+	# We have to add the ending newline since we removed any empty lines before
 	fresh_deltas_count=$(echo $fresh_deltas | wc -l)
 fi
 echo "${txtund}Fresh deltas:${txtrst} $fresh_deltas_count"
@@ -211,16 +214,19 @@ then
 	# Get the global stock
 	echo
 	echo "${info} Downloading global stock..."
-	$(wget -N -q --show-progress -P ./stock "${remote}Freemium_legi_global_*.tar.gz")
+	$(wget -N -T 10 -q --show-progress -P ./.tmp "${remote}Freemium_legi_global_*.tar.gz")
 	command_status "Error while getting remote data."
 
 	# Untar the global stock
 	echo
 	message="${info} Extracting global stock ${txtcyn}$stock...${txtrst}"
+	# Create directory if not already exisiting
+	mkdir -p "$script_dir/stock"
+
 	if [ $log_level -gt 0 ]
 	then
 		echo $message
-		tar -xzvf "$script_dir/stock/$stock" -C "$script_dir/stock"
+		tar -xzvf "$script_dir/.tmp/$stock" -C "$script_dir/stock"
 		command_status "Error while extracting the global stock archive." "$stock unpacked, timestamp: ${txtylw}$stock_date${txtrst}"
 	else
 		if [ pv_installed ]
@@ -234,6 +240,12 @@ then
 			command_status "Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
 		fi
 	fi
+
+	# # Init git repo
+	# echo "Initializing git repository..."
+	# git init "$script_dir/stock" && git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Init with global stock [$stock_date]"
+	# command_status "Error while initializing git repository"
+
 fi
 
 # Deltas
@@ -245,7 +257,7 @@ then
 	echo "${info} No fresh delta is available"
 else
 	echo "${info} Downloading $fresh_deltas_count fresh deltas..."
-	$(echo $fresh_deltas | sed -e "s@^@$remote@g" | wget -N -q --show-progress -P ./deltas -i -)
+	$(echo $fresh_deltas | sed -e "s@^@$remote@g" | wget -N -T 10 -q --show-progress -P ./.tmp -i -)
 	command_status "Error while getting remote data."
 
 	# Be it the first run or another one, apply fresh deltas, sequentially
@@ -262,17 +274,17 @@ else
 			if [ $log_level -gt 0 ]
 			then
 				echo $message
-				tar -xzvf "$script_dir/deltas/$delta" -C "$script_dir/stock" --strip-components 1
+				tar -xzvf "$script_dir/.tmp/$delta" -C "$script_dir/stock" --strip-components 1
 				command_status "Error while extracting delta archive $delta." "$delta unpacked, delta timestamp: ${txtylw}$timestamp${txtrst}"
 			else
 				if [ pv_installed ]
 				then
 					echo $message
-					pv "$script_dir/deltas/$delta" | tar -xzf - -C "$script_dir/stock" --strip-components 1
+					pv "$script_dir/.tmp/$delta" | tar -xzf - -C "$script_dir/stock" --strip-components 1
 					command_status "Error while extracting delta archive $delta." "delta timestamp: ${txtylw}$timestamp${txtrst}"
 				else
 					echo -n $message
-					tar -xzf "$script_dir/deltas/$delta" -C "$script_dir/stock" --strip-components 1
+					tar -xzf "$script_dir/.tmp/$delta" -C "$script_dir/stock" --strip-components 1
 					command_status "Error while extracting delta archive $delta." "delta timestamp: ${txtylw}$timestamp${txtrst}"
 				fi
 			fi
@@ -303,6 +315,11 @@ else
 					echo "${info} no perished files in delta"
 				fi
 			done <<< "$deletion_lists"
+
+			# # Commit in git repo
+			# echo "Commiting..."
+			# git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Apply delta [$timestamp]"
+			# command_status "Error while comitting delta in git repository"
 
 			# Finally replace stock_date by the current delta timestamp
 			local_stock_date=$timestamp
