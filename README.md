@@ -21,6 +21,13 @@ This script uses wget (required), git (optionnal) and pv (optionnal).
 find . -type d -empty -delete
 ```
 
+### List every codes in stock
+
+```shell
+codes="./stock/legi/global/code_et_TNC_en_vigueur/code_en_vigueur"
+ls "$codes"/*/*/*/*/*/*/*/* | grep ".stock" | sed 's/:$//g'
+```
+
 ### Find any xml file that changed in the last 100 days
 
 ```shell
