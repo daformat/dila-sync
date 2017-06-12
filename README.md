@@ -50,10 +50,9 @@ If you need to quickly reset everything to a blank state, here are the steps:
 ```shell
 # Remove .dila-sync folder
 rm -rf ./.dila-sync;
-# Remove the stock git repo
-rm -rf ./stock/.git;
-# Remove the stock itself
-rm -rf ./stock/*;
+# Remove the stock
+rm -rf ./stock;
+# Optionaly #
 # Remove the archive files if you want to re-download everything
-rm -rf ./.tmp;
+# rm -rf ./.tmp;
 ```

@@ -1,10 +1,16 @@
 #!/bin/zsh
 
-log_level=0
-use_git=0
-git_watch_dir="stock/legi/global/code_et_TNC_en_vigueur/code_en_vigueur/LEGI/TEXT/00/00/06/07/40/LEGITEXT000006074068"
 script_dir=`dirname $0`
 config_file="$script_dir/.dila-sync/config"
+log_level=0
+use_git=0
+# This should be changed to provide a better support for watching mutliple parts
+# of the stock. The script should use a list of directories and loop through
+# them to execute the required git magic on all of them
+# As of now, this only supports versionning a single directory
+# which is admitedly a little bit limited...
+# The path is relative to the script directory
+git_watch_dir="stock/legi/global/code_et_TNC_en_vigueur/code_en_vigueur/LEGI/TEXT/00/00/06/07/40/LEGITEXT000006074068"
 
 # Text color variables
 txtred=$(tput setaf 1) #  red
@@ -114,7 +120,7 @@ then
 		echo "${txtylw}You asked to use git but dila-sync was previously initialized without git.${txtrst}"
 		echo "${txtylw}Skipping git usage...${txtrst}"
 	else
-		echo "${txtylw}You asked not to use git but dila-sync was initialized with git versionning.${txtrst}"
+		echo "${txtylw}Dila-sync was initialized with git versionning.${txtrst}"
 		echo "${txtylw}Please update .dila-sync/config if you do not wish to use git anymore.${txtrst}"
 	fi
 	echo
@@ -128,7 +134,28 @@ pv_installed=$(hash pv 2>/dev/null)
 
 # Extract timestamp from a single filename
 get_timestamp () {
-	echo $1 | sed 's/.*_\([0-9]\+-[0-9]\+\)\.tar\.gz/\1/' | sed 's/-//'
+	local name
+	if [ -z $1 ]
+	then
+		read name
+	else
+		name=$1
+	fi
+
+	echo $name | sed 's/.*_\([0-9]\+-[0-9]\+\)\.tar\.gz/\1/' | sed 's/-//'
+}
+
+# Format timestamp to a mor human friendly format
+format_timestamp () {
+	local timestamp
+	if [ -z $1 ]
+	then
+		read timestamp
+	else
+		timestamp=$1
+	fi
+
+	echo $timestamp | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3 \4:\5:\6/'
 }
 
 # Print $1 message if last command exited with a non-zero code
@@ -158,25 +185,28 @@ then
 
 	EOF
 	local_stock_date=0
+
+	# Additionnally display a warning if git is used for versionning
+	if [ $use_git -ne 0 ]
+	then
+		cat <<-EOF
+			${txtbld}Using Git${txtrst}
+			${txtund}${txtbld}dila-sync${txtrst} is set up to use ${txtund}${txtbld}git${txtrst} for versionning.
+			Git support is still experimental and shouldn't be provided for the whole stock.
+			Instead, we should provide a way to explicitely set a list of sub-directories
+			to be versionned as autonomous git repos.
+
+			${txtund}${txtbld}TL,DR:${txtrst} I hope you didn’t set ${txtund}\$git_watch_dir${txtrst} to version everything...
+
+		EOF
+	fi
 else
 	local_stock_date=$config[last_delta]
-	echo "${txtund}Current stock date:${txtrst} $local_stock_date"
-fi
-
-# Display a warning if git is used for versionning
-if [ $use_git -ne 0 ]
-then
-	cat <<-EOF
-		${txtbld}Using Git${txtrst}
-		dila-sync is set up to use git for versionning. While this can be helpful
-		it is going to take forever to commit the global stock and each delta.
-		You’ve been informed.
-
-	EOF
+	echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
 fi
 
 remote=$config[remote]
-debug "\n${txtund}Remote:${txtrst} $remote\n" 1
+debug "\n${txtund}Remote:${txtrst} ${txtcyn}$remote${txtrst}\n" 1
 
 echo -n "Fetching stock index... "
 wgetoutput=$(wget -T 10 -q -O - $remote)
@@ -197,7 +227,7 @@ then
 fi
 
 echo "${txtund}Global stock:${txtrst}"
-echo "${txtcyn}$stock${txtrst} [$stock_date]\n"
+echo "${txtcyn}$stock [$(format_timestamp $stock_date)]${txtrst}\n"
 
 # Get deltas list
 deltas=$(echo $listing | grep -E "^${remote}legi_" | sed "s@$remote@@g")
@@ -209,10 +239,13 @@ then
 else
 	deltas_count=$(echo $deltas | wc -l)
 fi
-echo "${txtund}Deltas:${txtrst} $deltas_count"
+[[ $deltas_count -eq 0 ]] && col="${txtpnk}" || col="${txtcyn}"
+echo "${txtund}Deltas:${txtrst} ${col}$deltas_count${txtrst}"
+echo "${txtund}Oldest:${txtrst} ${txtcyn}$(echo $deltas | head -n 1 | get_timestamp | format_timestamp)${txtrst}"
+echo "${txtund}Latest:${txtrst} ${txtcyn}$(echo $deltas | tail -n 1 | get_timestamp | format_timestamp)${txtrst}"
 
 # Debug deltas if not empty
-if [ -n $deltas ]
+if [ -n $deltas -a $deltas_count -gt 0 ]
 then
 	debug "${txtpnk}<deltas>\n${txtcyn}$deltas\n${txtpnk}</deltas>${txtrst} \n" 1
 fi
@@ -237,10 +270,11 @@ else
 	# We have to add the ending newline since we removed any empty lines before
 	fresh_deltas_count=$(echo $fresh_deltas | wc -l)
 fi
-echo "${txtund}Fresh deltas:${txtrst} $fresh_deltas_count"
+[[ $fresh_deltas_count -eq 0 ]] && col="${txtpnk}" || col="${txtcyn}"
+echo "${txtund}Fresh deltas:${txtrst} ${col}$fresh_deltas_count${txtrst}"
 
 # Debug fresh deltas if not empty
-if [ -n $fresh_deltas ]
+if [ -n $fresh_deltas -a $fresh_deltas_count -gt 0 ]
 then
 	debug "${txtpnk}<fresh>\n${txtcyn}$fresh_deltas\n${txtpnk}</fresh>${txtrst} \n" 1
 fi
@@ -350,7 +384,8 @@ else
 						file=$(find "$script_dir/stock/$perished_filepath" -maxdepth 1 -name "$perished_filename*" -print)
 						if [ -z $file ]
 						then
-							debug "${warn} unable to find $script_dir/stock/$perished_filepath"
+							debug "${warn} unable to find $script_dir/stock/$perished_filepath/$perished_filename*"
+							debug "-> current line: $perished [in $perished_files]"
 						else
 							debug "deleting $file"
 							rm "$file"
@@ -392,8 +427,8 @@ fi
 # -----
 echo
 echo "${info} Up to date."
-echo "${txtund}Deltas applied:${txtrst} $fresh_deltas_count"
-echo "${txtund}Stock date:${txtrst} $local_stock_date"
+echo "${txtund}Deltas applied:${txtrst} ${col}$fresh_deltas_count${txtrst}"
+echo "${txtund}Stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
 
 # We currently always save config infos.
 # This might change in the future
