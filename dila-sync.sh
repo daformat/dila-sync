@@ -1,6 +1,7 @@
 #!/bin/zsh
 
 log_level=0
+use_git=0
 script_dir=`dirname $0`
 config_file="$script_dir/.dila-sync/config"
 
@@ -46,7 +47,7 @@ debug () {
 }
 
 # Script Options
-while getopts "hv" option
+while getopts "hvg" option
 do
 	case "$option" in
 		h)
@@ -57,6 +58,10 @@ do
 		v)
 			# Verbosity
 			log_level=$((log_level+1))
+			;;
+		g)
+			# Use git for versionning (Yolo style)
+			use_git=1
 			;;
 		*)
 			usage >&2
@@ -78,7 +83,8 @@ typeset -A config
 
 # Default config
 config=(
-  remote "ftp://ftp2.journal-officiel.gouv.fr:21/LEGI/"
+	remote "ftp://ftp2.journal-officiel.gouv.fr:21/LEGI/"
+	use_git $use_git
 )
 
 # Try to read config
@@ -92,6 +98,23 @@ then
       config[$varname]=$(echo "$line" | cut -d '=' -f 2-)
     fi
   done < $config_file
+fi
+
+# $config[use_git] takes precedence over -g script option
+# Since if we didn't initialized the stock with git, nothing
+# git-related is going to work...
+if [ $use_git -ne $config[use_git] ]
+then
+	if [ $use_git -eq 1 ]
+	then
+		echo "${txtylw}You asked to use git but dila-sync was previously initialized without git.${txtrst}"
+		echo "${txtylw}Skipping git usage...${txtrst}"
+	else
+		echo "${txtylw}You asked not to use git but dila-sync was initialized with git versionning.${txtrst}"
+		echo "${txtylw}Please update .dila-sync/config if you do not wish to use git anymore.${txtrst}"
+	fi
+	echo
+	use_git=$config[use_git]
 fi
 
 # Helpers
@@ -134,6 +157,18 @@ then
 else
 	local_stock_date=$config[last_delta]
 	echo "${txtund}Current stock date:${txtrst} $local_stock_date"
+fi
+
+# Display a warning if git is used for versionning
+if [ $use_git -ne 0 ]
+then
+	cat <<-EOF
+		${txtbld}Using Git${txtrst}
+		dila-sync is set up to use git for versionning. While this can be helpful
+		it is going to take forever to commit the global stock and each delta.
+		You’ve been informed.
+
+	EOF
 fi
 
 remote=$config[remote]
@@ -241,11 +276,13 @@ then
 		fi
 	fi
 
-	# Init git repo
-	echo "Initializing git repository..."
-	g=$(git init "$script_dir/stock" && git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Init with global stock [$stock_date]")
-	command_status "Error while initializing git repository"
-
+	if [ $use_git -gt 0 ]
+	then
+		# Init git repo
+		echo "Initializing git repository with global stock [$stock_date]..."
+		g=$(git init "$script_dir/stock" && git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Init with global stock [$stock_date]")
+		command_status "Error while initializing git repository"
+	fi
 fi
 
 # Deltas
@@ -305,8 +342,18 @@ else
 						then
 							debug "${warn} unable to find $script_dir/stock/$perished_filepath"
 						else
-							debug "deleting $file"
-							rm "$file"
+							# Decide how to delete files depending on if we're using git
+							if [ $use_git -eq 0 ]
+							then
+								# Not using git we just `rm` the files
+								debug "deleting $file"
+								rm "$file"
+							else
+								# If we use git, then we need to `git rm` them
+								relative_file=$(echo $file | sed "s@^$script_dir/stock/@./@")
+								debug "deleting $file in git ($relative_file)"
+								$(git -C "$script_dir/stock" rm "$file")
+							fi
 						fi
 					done < "$perished_files"
 					debug "deleting perished files list $perished_files"
@@ -316,10 +363,13 @@ else
 				fi
 			done <<< "$deletion_lists"
 
-			# Commit in git repo
-			echo "Commiting..."
-			g=$(git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Apply delta [$timestamp]")
-			command_status "Error while comitting delta in git repository"
+			if [ $use_git -gt 0 ]
+			then
+				# Commit in git repo
+				echo "Commiting delta $current_delta/$fresh_deltas_count [$timestamp]..."
+				g=$(git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Apply delta [$timestamp]")
+				command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
+			fi
 
 			# Finally replace stock_date by the current delta timestamp
 			local_stock_date=$timestamp
@@ -339,7 +389,7 @@ fi
 # -----
 echo
 echo "${info} Up to date."
-echo "${txtund}Deltas applied: ${txtrst} $fresh_deltas_count"
+echo "${txtund}Deltas applied:${txtrst} $fresh_deltas_count"
 echo "${txtund}Stock date:${txtrst} $local_stock_date"
 
 # We currently always save config infos.
@@ -347,4 +397,5 @@ echo "${txtund}Stock date:${txtrst} $local_stock_date"
 cat <<-EOF > ./.dila-sync/config
 	remote=$remote
 	last_delta=$local_stock_date
+	use_git=$use_git
 EOF
