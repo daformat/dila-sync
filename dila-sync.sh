@@ -406,7 +406,7 @@ echo "${txtund}Stock date:${txtrst} $local_stock_date"
 
 # We currently always save config infos.
 # This might change in the future
-cat <<-EOF > ./.dila-sync/config
+cat <<-EOF > "$script_dir/.dila-sync/config"
 	remote=$remote
 	last_delta=$local_stock_date
 	use_git=$use_git
