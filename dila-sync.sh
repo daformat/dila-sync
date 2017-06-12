@@ -4,13 +4,16 @@ script_dir=`dirname $0`
 config_file="$script_dir/.dila-sync/config"
 log_level=0
 use_git=0
-# This should be changed to provide a better support for watching mutliple parts
-# of the stock. The script should use a list of directories and loop through
-# them to execute the required git magic on all of them
-# As of now, this only supports versionning a single directory
-# which is admitedly a little bit limited...
-# The path is relative to the script directory
-git_watch_dir="stock/legi/global/code_et_TNC_en_vigueur/code_en_vigueur/LEGI/TEXT/00/00/06/07/40/LEGITEXT000006074068"
+# If you want to use git to version the deltas you must create a
+# .dila-sync-gitwatch text file listing every directory to be versioned
+# it should contain a single path per line
+# path are relative to the script directory
+watch_dirs_file="$script_dir/.dila-sync-gitwatch"
+if [ -r "$watch_dirs_file" ]
+then
+	git_watch_dirs=$(cat $watch_dirs_file)
+	git_watch_dirs_count=$(echo $git_watch_dirs | wc -l)
+fi
 
 # Text color variables
 txtred=$(tput setaf 1) #  red
@@ -67,7 +70,7 @@ do
 			log_level=$((log_level+1))
 			;;
 		g)
-			# Use git for versionning (Yolo style)
+			# Use git for versioning (Yolo style)
 			use_git=1
 			;;
 		*)
@@ -120,7 +123,7 @@ then
 		echo "${txtylw}You asked to use git but dila-sync was previously initialized without git.${txtrst}"
 		echo "${txtylw}Skipping git usage...${txtrst}"
 	else
-		echo "${txtylw}Dila-sync was initialized with git versionning.${txtrst}"
+		echo "${txtylw}Dila-sync was initialized with git versioning.${txtrst}"
 		echo "${txtylw}Please update .dila-sync/config if you do not wish to use git anymore.${txtrst}"
 	fi
 	echo
@@ -186,19 +189,27 @@ then
 	EOF
 	local_stock_date=0
 
-	# Additionnally display a warning if git is used for versionning
+	# Additionnally display a warning if git is used for versioning
 	if [ $use_git -ne 0 ]
 	then
-		cat <<-EOF
-			${txtbld}Using Git${txtrst}
-			${txtund}${txtbld}dila-sync${txtrst} is set up to use ${txtund}${txtbld}git${txtrst} for versionning.
-			Git support is still experimental and shouldn't be provided for the whole stock.
-			Instead, we should provide a way to explicitely set a list of sub-directories
-			to be versionned as autonomous git repos.
+		if [ -z $git_watch_dirs ]
+		then
+			cat <<-EOF
+				${txtbld}Using Git${txtrst}
+				${txtund}${txtbld}dila-sync${txtrst} is set up to use ${txtund}${txtbld}git${txtrst} for versioning.
+				However, no .dila-sync-gitwatch file was found in the script directory.
+				Since versioning the whole stock is a bad idea, ${txtund}git versioning will be disabled${txtrst}.
 
-			${txtund}${txtbld}TL,DR:${txtrst} I hope you didn’t set ${txtund}\$git_watch_dir${txtrst} to version everything...
+			EOF
+			use_git=0
+		else
+			cat <<-EOF
+				${txtbld}Using Git${txtrst}
+				${txtund}${txtbld}dila-sync${txtrst} is set up to use ${txtund}${txtbld}git${txtrst} for versioning.
+				$git_watch_dirs_count directories are to be versioned.
 
-		EOF
+			EOF
+		fi
 	fi
 else
 	local_stock_date=$config[last_delta]
@@ -323,9 +334,17 @@ then
 	if [ $use_git -gt 0 ]
 	then
 		# Init git repo
-		echo "Initializing git repository with global stock [$stock_date]..."
-		g=$(git init "$script_dir/$git_watch_dir" && git -C "$script_dir/$git_watch_dir" add . && git -C "$script_dir/$git_watch_dir" commit -m "Init with global stock [$stock_date]")
-		# command_status "Error while initializing git repository"
+		if [ $git_watch_dirs_count -eq 1 ]
+		then
+			echo "Initializing 1 git repository with global stock [$stock_date]..."
+		else
+			echo "Initializing $git_watch_dirs_count git repositories with global stock [$stock_date]..."
+		fi
+		while read git_watch_dir; do
+			debug "git init $git_watch_dir" 1
+			g=$(git init "$script_dir/$git_watch_dir" && git -C "$script_dir/$git_watch_dir" add . && git -C "$script_dir/$git_watch_dir" commit -m "Init with global stock [$stock_date]")
+			# command_status "Error while initializing git repository"
+		done <<< "$git_watch_dirs"
 	fi
 fi
 
@@ -403,10 +422,18 @@ else
 
 			if [ $use_git -gt 0 ]
 			then
-				# Commit in git repo
-				echo "Commiting delta $current_delta/$fresh_deltas_count [$timestamp]..."
-				g=$(git -C "$script_dir/$git_watch_dir" add -A && git -C "$script_dir/$git_watch_dir" commit -m "Apply delta [$timestamp]")
-				# command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
+				# Commit in git repos
+				if [ $git_watch_dirs_count -eq 1 ]
+				then
+					echo "Committing delta $current_delta/$fresh_deltas_count [$timestamp] in 1 repository..."
+				else
+					echo "Committing delta $current_delta/$fresh_deltas_count [$timestamp] in $git_watch_dirs_count repositories..."
+				fi
+				while read git_watch_dir; do
+					debug "Committing in $git_watch_dir" 1
+					g=$(git -C "$script_dir/$git_watch_dir" add -A && git -C "$script_dir/$git_watch_dir" commit -m "Apply delta [$timestamp]")
+					# command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
+				done <<< "$git_watch_dirs"
 			fi
 
 			# Finally replace stock_date by the current delta timestamp
