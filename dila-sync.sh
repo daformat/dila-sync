@@ -282,6 +282,9 @@ then
 		fi
 	fi
 
+	# Save original stock_date and archive name in .dila-sync/
+	echo "$stock_date	$stock">>"$script_dir/.dila-sync/stocks"
+
 	if [ $use_git -gt 0 ]
 	then
 		# Init git repo
@@ -368,6 +371,9 @@ else
 					echo "${info} no perished files in delta"
 				fi
 			done <<< "$deletion_lists"
+
+			# Save delta timestamp and archive name in .dila-sync/
+			echo "$timestamp	$delta">>"$script_dir/.dila-sync/applied-deltas"
 
 			if [ $use_git -gt 0 ]
 			then
