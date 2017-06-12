@@ -244,7 +244,7 @@ fi
 # Global stock
 # ------------
 # If it's the first run we have to download and untar the global stock
-if [ -z $config[last_delta] ]
+if [ -z $config[last_delta] -o $config[last_delta] -eq 0 ]
 then
 	# Get the global stock
 	echo
