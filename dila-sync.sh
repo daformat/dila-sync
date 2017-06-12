@@ -2,6 +2,7 @@
 
 log_level=0
 use_git=0
+git_watch_dir="stock/legi/global/code_et_TNC_en_vigueur/code_en_vigueur/LEGI/TEXT/00/00/06/07/40/LEGITEXT000006074068"
 script_dir=`dirname $0`
 config_file="$script_dir/.dila-sync/config"
 
@@ -289,7 +290,7 @@ then
 	then
 		# Init git repo
 		echo "Initializing git repository with global stock [$stock_date]..."
-		g=$(git init "$script_dir/stock" && git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -m "Init with global stock [$stock_date]")
+		g=$(git init "$script_dir/$git_watch_dir" && git -C "$script_dir/$git_watch_dir" add . && git -C "$script_dir/$git_watch_dir" commit -m "Init with global stock [$stock_date]")
 		# command_status "Error while initializing git repository"
 	fi
 fi
@@ -369,7 +370,7 @@ else
 			then
 				# Commit in git repo
 				echo "Commiting delta $current_delta/$fresh_deltas_count [$timestamp]..."
-				g=$(git -C "$script_dir/stock" add -A && git -C "$script_dir/stock" commit -m "Apply delta [$timestamp]")
+				g=$(git -C "$script_dir/$git_watch_dir" add -A && git -C "$script_dir/$git_watch_dir" commit -m "Apply delta [$timestamp]")
 				# command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
 			fi
 
