@@ -87,6 +87,9 @@ config=(
 	use_git $use_git
 )
 
+# Create .dila-sync if not already exisiting
+mkdir -p "$script_dir/.dila-sync"
+
 # Try to read config
 if [ -r $config_file ]
 then
@@ -246,6 +249,9 @@ fi
 # If it's the first run we have to download and untar the global stock
 if [ -z $config[last_delta] -o $config[last_delta] -eq 0 ]
 then
+	# Create .tmp if not already exisiting
+	mkdir -p "$script_dir/.tmp"
+
 	# Get the global stock
 	echo
 	echo "${info} Downloading global stock..."
