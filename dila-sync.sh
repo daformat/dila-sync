@@ -289,8 +289,8 @@ then
 	then
 		# Init git repo
 		echo "Initializing git repository with global stock [$stock_date]..."
-		g=$(git init "$script_dir/stock" && git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Init with global stock [$stock_date]")
-		command_status "Error while initializing git repository"
+		g=$(git init "$script_dir/stock" && git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -m "Init with global stock [$stock_date]")
+		# command_status "Error while initializing git repository"
 	fi
 fi
 
@@ -379,8 +379,8 @@ else
 			then
 				# Commit in git repo
 				echo "Commiting delta $current_delta/$fresh_deltas_count [$timestamp]..."
-				g=$(git -C "$script_dir/stock" add . && git -C "$script_dir/stock" commit -am "Apply delta [$timestamp]")
-				command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
+				g=$(git -C "$script_dir/stock" add -A && git -C "$script_dir/stock" commit -m "Apply delta [$timestamp]")
+				# command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
 			fi
 
 			# Finally replace stock_date by the current delta timestamp
