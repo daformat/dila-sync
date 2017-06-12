@@ -232,11 +232,11 @@ then
 		if [ pv_installed ]
 		then
 			echo $message
-			pv "$script_dir/stock/$stock" | tar -xzf - -C "$script_dir/stock"
+			pv "$script_dir/.tmp/$stock" | tar -xzf - -C "$script_dir/stock"
 			command_status "Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
 		else
 			echo -n $message
-			tar -xzf "$script_dir/stock/$stock" -C "$script_dir/stock"
+			tar -xzf "$script_dir/.tmp/$stock" -C "$script_dir/stock"
 			command_status "Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
 		fi
 	fi
