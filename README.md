@@ -35,6 +35,14 @@ find_in="./legi/global/code_et_TNC_en_vigueur/code_en_vigueur/LEGI/TEXT/00/00/06
 find $find_in -type f -mtime -100 -name "*.xml" -printf "%TD %TR %p\n"
 ```
 
+## Using git
+
+### View the last commit with diff in a specific folder
+```shell
+look_in="./legi/global/code_et_TNC_en_vigueur/code_en_vigueur/LEGI/TEXT/00/00/06/07/40/LEGITEXT000006074068"
+git log -p -1 -s -- $look_in
+```
+
 ## Dev commands
 
 If you need to quickly reset everything to a blank state, here are the steps:
