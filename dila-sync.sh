@@ -351,18 +351,8 @@ else
 						then
 							debug "${warn} unable to find $script_dir/stock/$perished_filepath"
 						else
-							# Decide how to delete files depending on if we're using git
-							if [ $use_git -eq 0 ]
-							then
-								# Not using git we just `rm` the files
-								debug "deleting $file"
-								rm "$file"
-							else
-								# If we use git, then we need to `git rm` them
-								relative_file=$(echo $file | sed "s@^$script_dir/stock/@./@")
-								debug "deleting $file in git ($relative_file)"
-								$(git -C "$script_dir/stock" rm "$file")
-							fi
+							debug "deleting $file"
+							rm "$file"
 						fi
 					done < "$perished_files"
 					debug "deleting perished files list $perished_files"
