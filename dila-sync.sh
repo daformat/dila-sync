@@ -93,7 +93,7 @@ typeset -A config
 
 # Default config
 config=(
-	remote "ftp://ftp2.journal-officiel.gouv.fr:21/LEGI/"
+	remote "ftp://ftp2.journal-officiel.gouv.fr:21/"
 	use_git $use_git
 )
 
@@ -178,11 +178,23 @@ command_status () {
 	fi
 }
 
+get_last_applied_delta_for_stock () {
+	if [ -r "$conf_dir/applied-deltas" ]
+	then
+		cat "$conf_dir/applied-deltas" | grep "	${1}_"
+	fi
+}
+
+get_last_global_import_for_stock () {
+	if [ -r "$conf_dir/stocks" ]
+	then
+		cat "$conf_dir/stocks" | grep "	Freemium_${1}_"
+	fi
+}
+
 
 # Start
 # -----
-local_stock_date=0
-
 
 # First run
 # ---------
@@ -199,7 +211,7 @@ then
 	cat <<-EOF
 		${txtbld}First run${txtrst}
 		It appears that you are running ${txtund}${txtbld}dila-sync${txtrst} for the first time.
-		We need to download a fresh copy of the whole stock and the latest deltas.
+		We need to download a fresh copy of the whole stock(s) and the latest deltas.
 		This might take some time... Enjoy your coffee!
 
 	EOF
@@ -226,323 +238,372 @@ then
 			EOF
 		fi
 	fi
-else
+fi
+
+stocks_to_sync=""
+
+# On every stock_to_sync
+# ----------------------
+
+for stock_to_sync in "$@"
+do
+	# convert stock to lowercase
+	stock_to_sync=$(echo "$stock_to_sync" | tr '[:upper:]' '[:lower:]')
+	stocks_to_sync="$stocks_to_sync$stock_to_sync\n"
+
+	stock_info="${txtpnk}${txtbld}[$stock_to_sync]${txtrst}"
+
+	stock_remote="${remote}$(echo $stock_to_sync | tr '[:lower:]' '[:upper:]')/"
+	stock_git_watch_dirs=$(echo $git_watch_dirs | grep "./stock/$stock_to_sync/")
+	stock_git_watch_dirs_count=$(echo -n $stock_git_watch_dirs | wc -l)
+
+	local_stock_date=0
+
 	# Determine local stock date
 	# We first check if any delta was applied
-	if [ -r "$conf_dir/applied-deltas" ]
+	applied_deltas=$(get_last_applied_delta_for_stock $stock_to_sync)
+	applied_deltas_count=$(echo $applied_deltas | wc -l)
+	if [ -z applied_deltas_count ]
 	then
-		applied_deltas=$(cat "$conf_dir/applied-deltas")
-		applied_deltas_count=$(echo $applied_deltas | wc -l)
+		# If no delta was already applied, check if any matching stock has already
+		# been imported
+		local_stock_date_info="no delta applied yet"
+		local_stock_date=$(get_last_global_import_for_stock $stock_to_sync | tail -n1 | cut -f1)
+	else
+		# If we already applied delta on the current stock_to_sync, use the last one
 		local_stock_date_info="$applied_deltas_count delta$([[ $applied_deltas_count -gt 1 ]] && echo "s") applied"
 		local_stock_date=$(echo $applied_deltas | tail -n1 | cut -f1)
-	elif [ -r "$conf_dir/stocks" ]
-	then
-		local_stock_date_info="no delta applied yet"
-		local_stock_date=$(cat "$conf_dir/stocks" | tail -n1 | cut -f1)
 	fi
-	echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst} ($local_stock_date_info)"
-fi
 
-
-# Fetch stock and deltas list from remote
-# ---------------------------------------
-debug "\n${txtund}Remote:${txtrst} ${txtcyn}$remote${txtrst}\n" 1
-
-echo -n "Fetching stock and deltas... "
-wgetoutput=$(wget -T 10 -q -O - $remote)
-command_status "Error while getting remote data."
-
-# Now let's get only the actual urls
-listing=$(echo $wgetoutput | grep -o 'href="[^"]*"' | sed 's/href="\([^"]*\)"/\1/g')
-echo -n $txtcyn
-echo "$( echo $listing | wc -l) files found"
-echo $txtrst
-
-# Get global stock filename
-stock=$(echo $listing | grep -E "^${remote}Freemium_legi_global" | sed "s@$remote@@")
-stock_date=$(get_timestamp $stock)
-if [ $local_stock_date -eq 0 ]
-then
-	local_stock_date=$stock_date
-fi
-
-echo "${txtund}Global stock:${txtrst}"
-echo "${txtcyn}$stock [$(format_timestamp $stock_date)]${txtrst}\n"
-
-# Get deltas list
-deltas=$(echo $listing | grep -E "^${remote}legi_" | sed "s@$remote@@g")
-
-# Count them
-if [ -z $deltas ]
-then
-	deltas_count=0
-else
-	deltas_count=$(echo $deltas | wc -l)
-fi
-[[ $deltas_count -eq 0 ]] && col="${txtpnk}" || col="${txtcyn}"
-echo "${txtund}Deltas:${txtrst} ${col}$deltas_count${txtrst}"
-echo "${txtund}Oldest:${txtrst} ${txtcyn}$(echo $deltas | head -n 1 | get_timestamp | format_timestamp)${txtrst}"
-echo "${txtund}Latest:${txtrst} ${txtcyn}$(echo $deltas | tail -n 1 | get_timestamp | format_timestamp)${txtrst}"
-
-# Debug deltas if not empty
-if [ -n $deltas -a $deltas_count -gt 0 ]
-then
-	debug "${txtpnk}<deltas>\n${txtcyn}$deltas\n${txtpnk}</deltas>${txtrst} \n" 1
-fi
-
-# Filter out perished deltas
-fresh_deltas=""
-while read delta; do
-	timestamp=$(get_timestamp $delta)
-	if [ $timestamp -gt $local_stock_date ]
+	# At this point if we were unable to find any local_stock_date, it's the
+	# first run on the current $stock_to_sync
+	if [ -z $local_stock_date ]
 	then
-		fresh_deltas="$fresh_deltas$delta\n"
+		local_stock_date=0
+		is_first_run=1
+		# Stock first run message
+		cat <<-EOF
+			${txtbld}First sync${txtrst} ${stock_info}
+			We need to download a fresh copy of the ${stock_to_sync} stock and the latest deltas.
+			This might take some time... Enjoy your coffee!
+
+		EOF
+	else
+		is_first_run=0
+		echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst} ($local_stock_date_info)"
 	fi
-done <<< "$deltas"
-# Remove empty lines if any
-fresh_deltas=$(echo $fresh_deltas | sed 's/^\s*$//g')
-
-# Count them
-if [ -z $fresh_deltas ]
-then
-	fresh_deltas_count=0
-else
-	# We have to add the ending newline since we removed any empty lines before
-	fresh_deltas_count=$(echo $fresh_deltas | wc -l)
-fi
-[[ $fresh_deltas_count -eq 0 ]] && col="${txtpnk}" || col="${txtcyn}"
-echo "${txtund}Fresh deltas:${txtrst} ${col}$fresh_deltas_count${txtrst}"
-
-# Debug fresh deltas if not empty
-if [ -n $fresh_deltas -a $fresh_deltas_count -gt 0 ]
-then
-	debug "${txtpnk}<fresh>\n${txtcyn}$fresh_deltas\n${txtpnk}</fresh>${txtrst} \n" 1
-fi
 
 
-# Global stock
-# ------------
-# If it's the first run we have to download and untar the global stock
-if [ $is_first_run -eq 1 ]
-then
-	# Create .tmp if not already exisiting
-	mkdir -p "$script_dir/.tmp"
 
-	# Get the global stock
-	echo
-	echo "${info} Downloading global stock..."
-	$(wget -N -T 10 -q --show-progress -P ./.tmp "${remote}Freemium_legi_global_*.tar.gz")
+	# Fetch stock and deltas list from remote
+	# ---------------------------------------
+	debug "\n$stock_info ${txtund}Remote:${txtrst} ${txtcyn}$remote${txtrst}" 1
+	debug "$stock_info ${txtund}Stock remote:${txtrst} ${txtcyn}$stock_remote${txtrst}\n" 1
+
+	echo -n "$stock_info Fetching stock and deltas... "
+	wgetoutput=$(wget -T 10 -q -O - $stock_remote)
 	command_status "Error while getting remote data."
 
-	# Untar the global stock
-	echo
-	message="${info} Extracting global stock ${txtcyn}$stock...${txtrst}"
-	# Create directory if not already exisiting
-	mkdir -p "$script_dir/stock"
+	# Now let's get only the actual urls
+	listing=$(echo $wgetoutput | grep -o 'href="[^"]*"' | sed 's/href="\([^"]*\)"/\1/g')
+	echo -n $txtcyn
+	echo "$( echo $listing | wc -l) files found"
+	echo $txtrst
 
-	if [ $log_level -gt 0 ]
+	# Get global stock filename
+	stock=$(echo $listing | grep -E "^${stock_remote}Freemium_${stock_to_sync}_" | sed "s@$stock_remote@@")
+	stock_date=$(get_timestamp $stock)
+	if [ $local_stock_date -eq 0 ]
 	then
-		echo $message
-		tar -xzvf "$script_dir/.tmp/$stock" -C "$script_dir/stock"
-		command_status "Error while extracting the global stock archive." "$stock unpacked, timestamp: ${txtylw}$stock_date${txtrst}"
+		local_stock_date=$stock_date
+	fi
+
+	echo "${txtund}Global stock:${txtrst}"
+	echo "${txtcyn}$stock [$(format_timestamp $stock_date)]${txtrst}\n"
+
+	# Get deltas list
+	deltas=$(echo $listing | grep -E "^${stock_remote}${stock_to_sync}_" | sed "s@${stock_remote}@@g")
+
+	# Count them
+	if [ -z $deltas ]
+	then
+		deltas_count=0
 	else
-		if [ pv_installed ]
-		then
-			echo $message
-			pv "$script_dir/.tmp/$stock" | tar -xzf - -C "$script_dir/stock"
-			command_status "Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
-		else
-			echo -n $message
-			tar -xzf "$script_dir/.tmp/$stock" -C "$script_dir/stock"
-			command_status "Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
-		fi
+		deltas_count=$(echo $deltas | wc -l)
 	fi
+	[[ $deltas_count -eq 0 ]] && col="${txtpnk}" || col="${txtcyn}"
+	echo "${txtund}Deltas:${txtrst} ${col}$deltas_count${txtrst}"
+	echo "${txtund}Oldest:${txtrst} ${txtcyn}$(echo $deltas | head -n 1 | get_timestamp | format_timestamp)${txtrst}"
+	echo "${txtund}Latest:${txtrst} ${txtcyn}$(echo $deltas | tail -n 1 | get_timestamp | format_timestamp)${txtrst}"
 
-	# Using git
-	if [ $use_git -gt 0 ]
+	# Debug deltas if not empty
+	if [ -n $deltas -a $deltas_count -gt 0 ]
 	then
-		# Init git repo
-		if [ $git_watch_dirs_count -eq 1 ]
-		then
-			git_msg="Initializing 1 git repository with global stock [$stock_date]..."
-		else
-			git_msg="Initializing $git_watch_dirs_count git repositories with global stock [$stock_date]..."
-		fi
-		echo
-		echo ${info} $git_msg
-
-		i=1
-		while read git_watch_dir; do
-			git_msg="[$i/$git_watch_dirs_count] ${txtcyn}git init $git_watch_dir${txtrst}"
-			if [ $log_level -gt 0 ]
-			then
-				# display a new line for each git repo if in verbose mode
-				debug $git_msg
-			else
-				# Replace previous line if not in verbose mode
-				echo -n "\r\033[K$git_msg"
-			fi
-			g=$(git init "$script_dir/$git_watch_dir" && git -C "$script_dir/$git_watch_dir" add . && git -C "$script_dir/$git_watch_dir" commit -m "Init with global stock [$stock_date]")
-			# command_status "Error while initializing git repository"
-			let i++
-		done <<< "$git_watch_dirs"
-
-		# Print a newline if we didn't print any during the loop (eg. log_level=0)
-		# Delete last line if we're not in verbose mode
-		[[ $log_level -eq 0 ]] && echo -n "\r\033[K"
-		echo "${ok} Done comitting global stock"
+		debug "${txtpnk}<deltas>\n${txtcyn}$deltas\n${txtpnk}</deltas>${txtrst} \n" 1
 	fi
 
-	# Done with global stock
-	# Save original stock timestamp and archive name in .dila-sync/stocks
-	echo "$stock_date	$stock">>"$conf_dir/stocks"
-fi
-
-# Deltas
-# ------
-# Get fresh deltas and apply them if any
-echo
-if [ $fresh_deltas_count -eq 0 ]
-then
-	echo "${info} No fresh delta is available"
-else
-	echo "${info} Fetch and apply $fresh_deltas_count fresh deltas..."
-
-	# Fetch and apply fresh deltas, sequentially
-	current_delta=1
+	# Filter out perished deltas
+	fresh_deltas=""
 	while read delta; do
-		echo
 		timestamp=$(get_timestamp $delta)
-
-		# We only care about deltas that are fresher than our local stock
 		if [ $timestamp -gt $local_stock_date ]
 		then
-			echo "${info} Downloading delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
-			$(echo $delta | sed -e "s@^@$remote@g" | wget -N -T 10 -q --show-progress -P ./.tmp -i -)
-			command_status "Error while getting remote data."
-			echo
+			fresh_deltas="$fresh_deltas$delta\n"
+		fi
+	done <<< "$deltas"
+	# Remove empty lines if any
+	fresh_deltas=$(echo $fresh_deltas | sed 's/^\s*$//g')
 
-			# Unpack archive
-			message="${info} Unpacking delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
-			if [ $log_level -gt 0 ]
+	# Count them
+	if [ -z $fresh_deltas ]
+	then
+		fresh_deltas_count=0
+	else
+		# We have to add the ending newline since we removed any empty lines before
+		fresh_deltas_count=$(echo $fresh_deltas | wc -l)
+	fi
+	[[ $fresh_deltas_count -eq 0 ]] && col="${txtpnk}" || col="${txtcyn}"
+	echo "${txtund}Fresh deltas:${txtrst} ${col}$fresh_deltas_count${txtrst}"
+
+	# Debug fresh deltas if not empty
+	if [ -n $fresh_deltas -a $fresh_deltas_count -gt 0 ]
+	then
+		debug "${txtpnk}<fresh>\n${txtcyn}$fresh_deltas\n${txtpnk}</fresh>${txtrst} \n" 1
+	fi
+
+
+	# Global stock
+	# ------------
+	# If it's the first run we have to download and untar the global stock
+	if [ $is_first_run -eq 1 ]
+	then
+		# Create .tmp if not already exisiting
+		mkdir -p "$script_dir/.tmp"
+
+		# Get the global stock
+		echo
+		echo "$stock_info ${info} Downloading global stock..."
+		$(wget -N -T 10 -q --show-progress -P ./.tmp "${stock_remote}${stock}")
+		command_status "Error while getting remote data."
+
+		# Untar the global stock
+		echo
+		message="$stock_info ${info} Extracting global stock ${txtcyn}$stock...${txtrst}"
+		# Create directory if not already exisiting
+		mkdir -p "$script_dir/stock"
+
+		if [ $log_level -gt 0 ]
+		then
+			echo $message
+			tar -xzvf "$script_dir/.tmp/$stock" -C "$script_dir/stock"
+			command_status "$stock_info Error while extracting the global stock archive." "$stock unpacked, timestamp: ${txtylw}$stock_date${txtrst}"
+		else
+			if [ pv_installed ]
 			then
 				echo $message
-				tar -xzvf "$script_dir/.tmp/$delta" -C "$script_dir/stock" --strip-components 1
-				command_status "Error while extracting delta archive $delta." "$delta unpacked, delta timestamp: ${txtylw}$timestamp${txtrst}"
+				pv "$script_dir/.tmp/$stock" | tar -xzf - -C "$script_dir/stock"
+				command_status "$stock_info Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
 			else
-				if [ pv_installed ]
+				echo -n $message
+				tar -xzf "$script_dir/.tmp/$stock" -C "$script_dir/stock"
+				command_status "$stock_info Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
+			fi
+		fi
+
+		# Using git
+		if [ $use_git -gt 0 -a $stock_git_watch_dirs_count -gt 0 ]
+		then
+			# Init git repo
+			if [ $stock_git_watch_dirs_count -eq 1 ]
+			then
+				git_msg="Initializing 1 git repository with global stock [$stock_date]..."
+			else
+				git_msg="Initializing $stock_git_watch_dirs_count git repositories with global stock [$stock_date]..."
+			fi
+			echo
+			echo "$stock_info ${info} $git_msg"
+
+			i=1
+			while read git_watch_dir; do
+				git_msg="[$i/$stock_git_watch_dirs_count] ${txtcyn}git init $git_watch_dir${txtrst}"
+				if [ $log_level -gt 0 ]
+				then
+					# display a new line for each git repo if in verbose mode
+					debug $git_msg
+				else
+					# Replace previous line if not in verbose mode
+					echo -n "\r\033[K$git_msg"
+				fi
+				g=$(git init "$script_dir/$git_watch_dir" && git -C "$script_dir/$git_watch_dir" add . && git -C "$script_dir/$git_watch_dir" commit -m "Init with global stock [$stock_date]")
+				# command_status "Error while initializing git repository"
+				let i++
+			done <<< "$stock_git_watch_dirs"
+
+			# Print a newline if we didn't print any during the loop (eg. log_level=0)
+			# Delete last line if we're not in verbose mode
+			[[ $log_level -eq 0 ]] && echo -n "\r\033[K"
+			echo "${ok} Done comitting global stock"
+		fi
+
+		# Done with global stock
+		# Save original stock timestamp and archive name in .dila-sync/stocks
+		echo "$stock_date	$stock">>"$conf_dir/stocks"
+	fi
+
+	# Deltas
+	# ------
+	# Get fresh deltas and apply them if any
+	echo
+	if [ $fresh_deltas_count -eq 0 ]
+	then
+		echo "$stock_info ${info} No fresh delta is available"
+	else
+		echo "$stock_info ${info} Fetch and apply $fresh_deltas_count fresh deltas..."
+
+		# Fetch and apply fresh deltas, sequentially
+		current_delta=1
+		while read delta; do
+			echo
+			timestamp=$(get_timestamp $delta)
+
+			# We only care about deltas that are fresher than our local stock
+			if [ $timestamp -gt $local_stock_date ]
+			then
+				echo "$stock_info ${info} Downloading delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
+				$(echo $delta | sed -e "s@^@$stock_remote@g" | wget -N -T 10 -q --show-progress -P ./.tmp -i -)
+				command_status "Error while getting remote data."
+				echo
+
+				# Unpack archive
+				message="$stock_info ${info} Unpacking delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
+				if [ $log_level -gt 0 ]
 				then
 					echo $message
-					pv "$script_dir/.tmp/$delta" | tar -xzf - -C "$script_dir/stock" --strip-components 1
-					command_status "Error while extracting delta archive $delta." "delta timestamp: ${txtylw}$timestamp${txtrst}"
+					tar -xzvf "$script_dir/.tmp/$delta" -C "$script_dir/stock" --strip-components 1
+					command_status "$stock_info Error while extracting delta archive $delta." "$delta unpacked, delta timestamp: ${txtylw}$timestamp${txtrst}"
 				else
-					echo -n $message
-					tar -xzf "$script_dir/.tmp/$delta" -C "$script_dir/stock" --strip-components 1
-					command_status "Error while extracting delta archive $delta." "delta timestamp: ${txtylw}$timestamp${txtrst}"
+					if [ pv_installed ]
+					then
+						echo $message
+						pv "$script_dir/.tmp/$delta" | tar -xzf - -C "$script_dir/stock" --strip-components 1
+						command_status "$stock_info Error while extracting delta archive $delta." "delta timestamp: ${txtylw}$timestamp${txtrst}"
+					else
+						echo -n $message
+						tar -xzf "$script_dir/.tmp/$delta" -C "$script_dir/stock" --strip-components 1
+						command_status "$stock_info Error while extracting delta archive $delta." "delta timestamp: ${txtylw}$timestamp${txtrst}"
+					fi
 				fi
-			fi
 
-			# Delete perished files if any
-			echo
-			deletion_lists=$(find "$script_dir/stock" -maxdepth 1 -name 'liste_suppression*' -print)
-			while read perished_files; do
-				if [ -r "$perished_files" ]
+				# Delete perished files if any
+				echo
+				deletion_lists=$(find "$script_dir/stock" -maxdepth 1 -name 'liste_suppression*' -print)
+				while read perished_files; do
+					if [ -r "$perished_files" ]
+					then
+						perished_files_deleted=0;
+						perished_files_not_found=0;
+						echo "$stock_info ${info} Deleting perished files"
+						while read perished
+						do
+							perished_filepath=$(echo $perished | sed 's@\(^.*\)/\([^/]\+\)$@\1@')
+							perished_filename=$(echo $perished | sed 's@\(^.*\)/\([^/]\+\)$@\2@')
+							file=$(find "$script_dir/stock/$perished_filepath" -maxdepth 1 -name "$perished_filename*" -print 2>/dev/null)
+							find_return_code=$?
+
+							# Does the perished file exist?
+							if [ -z $file -o $find_return_code -gt 0 ]
+							then
+								[[ $log_level -eq 0 ]] && echo -n "\r\033"
+								debug "${warn} unable to find $script_dir/stock/$perished_filepath/$perished_filename*"
+								debug "    current line: $perished\n    [in $perished_files - extracted from $delta]"
+								let perished_files_not_found++;
+
+							# If a file was found, delete it
+							else
+								# Display file to be deleted (non-verbose)
+								[[ $log_level -eq 0 ]] && echo -n "\r\033[Kdeleting $file"
+								# Display file to be deleted (verbose)
+								debug "deleting $file" 1
+								rm "$file"
+								let perished_files_deleted++;
+							fi
+						done < "$perished_files"
+
+						# Delete last line if we're not in verbose mode
+						[[ $log_level -eq 0 ]] && echo -n "\r\033[K"
+
+						# Now, we can delete the perished files list
+						debug "deleting perished files list $perished_files" 1
+						rm "$perished_files"
+
+						deletion_stats="$([[ $perished_files_deleted -gt 0 ]] && echo "${txtgrn}deleted: $perished_files_deleted ")"
+						deletion_stats="$deletion_stats$([[ $perished_files_not_found -gt 0 ]] && echo "${txtred}not found: $perished_files_not_found")"
+						deletion_stats="$deletion_stats${txtrst}"
+						echo "${ok} Done deleting perished files. $deletion_stats"
+					else
+						echo "${info} No perished files in delta."
+					fi
+				done <<< "$deletion_lists"
+
+				# Using git
+				if [ $use_git -gt 0 -a $stock_git_watch_dirs_count -gt 0 ]
 				then
-					echo "${info} Deleting perished files"
-					while read perished
-					do
-						perished_filepath=$(echo $perished | sed 's@\(^.*\)/\([^/]\+\)$@\1@')
-						perished_filename=$(echo $perished | sed 's@\(^.*\)/\([^/]\+\)$@\2@')
-						file=$(find "$script_dir/stock/$perished_filepath" -maxdepth 1 -name "$perished_filename*" -print 2>/dev/null)
-						find_return_code=$?
-
-						# Display warning if no file was found
-						if [ -z $file -o $find_return_code -gt 0 ]
+					# Commit in git repos
+					if [ $stock_git_watch_dirs_count -eq 1 ]
+					then
+						git_msg="Committing delta $current_delta/$fresh_deltas_count [$timestamp] in 1 repository..."
+					else
+						git_msg="Committing delta $current_delta/$fresh_deltas_count [$timestamp] in $stock_git_watch_dirs_count repositories..."
+					fi
+					echo
+					echo "$stock_info ${info} $git_msg"
+					i=1
+					while read git_watch_dir; do
+						git_msg="[$i/$stock_git_watch_dirs_count] ${txtcyn}Committing in $git_watch_dir${txtrst}"
+						if [ $log_level -gt 0 ]
 						then
-							[[ $log_level -eq 0 ]] && echo -n "\r\033"
-							debug "${warn} unable to find $script_dir/stock/$perished_filepath/$perished_filename*"
-							debug "    current line: $perished\n    [in $perished_files]"
-
-						# If a file was found, delete it
+							# display a new line for each git repo if in verbose mode
+							debug $git_msg
 						else
-							# Display file to be deleted (non-verbose)
-							[[ $log_level -eq 0 ]] && echo -n "\r\033[Kdeleting $file"
-							# Display file to be deleted (verbose)
-							debug "deleting $file" 1
-							rm "$file"
+							# Replace previous line if not in verbose mode
+							echo -n "\r\033[K$git_msg"
 						fi
-					done < "$perished_files"
+						g=$(git -C "$script_dir/$git_watch_dir" add -A && git -C "$script_dir/$git_watch_dir" commit -m "Apply delta [$timestamp]")
+						# command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
+						let i++
+					done <<< "$stock_git_watch_dirs"
 
 					# Delete last line if we're not in verbose mode
 					[[ $log_level -eq 0 ]] && echo -n "\r\033[K"
-
-					# Now, we can delete the perished files list
-					debug "deleting perished files list $perished_files" 1
-					rm "$perished_files"
-
-					echo "${ok} Done deleting perished files"
-				else
-					echo "${info} no perished files in delta"
+					echo "${ok} Done comitting delta"
 				fi
-			done <<< "$deletion_lists"
 
-			# Using git
-			if [ $use_git -gt 0 ]
-			then
-				# Commit in git repos
-				if [ $git_watch_dirs_count -eq 1 ]
-				then
-					git_msg="Committing delta $current_delta/$fresh_deltas_count [$timestamp] in 1 repository..."
-				else
-					git_msg="Committing delta $current_delta/$fresh_deltas_count [$timestamp] in $git_watch_dirs_count repositories..."
-				fi
+				# Finish up applying current delta
+				# Save delta timestamp and archive name in .dila-sync/applied-deltas
+				echo "$timestamp	$delta">>"$conf_dir/applied-deltas"
+				# Finally, update stock_date to the current delta timestamp
+				local_stock_date=$timestamp
+
+				# Done, the current delta was applied
 				echo
-				echo ${info} $git_msg
-				i=1
-				while read git_watch_dir; do
-					git_msg="[$i/$git_watch_dirs_count] ${txtcyn}Committing in $git_watch_dir${txtrst}"
-					if [ $log_level -gt 0 ]
-					then
-						# display a new line for each git repo if in verbose mode
-						debug $git_msg
-					else
-						# Replace previous line if not in verbose mode
-						echo -n "\r\033[K$git_msg"
-					fi
-					g=$(git -C "$script_dir/$git_watch_dir" add -A && git -C "$script_dir/$git_watch_dir" commit -m "Apply delta [$timestamp]")
-					# command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
-					let i++
-				done <<< "$git_watch_dirs"
+				echo "$stock_info ${ok} ${txtbld}Done applying delta $current_delta/$fresh_deltas_count [$timestamp]${txtrst}"
 
-				# Delete last line if we're not in verbose mode
-				[[ $log_level -eq 0 ]] && echo -n "\r\033[K"
-				echo "${ok} Done comitting delta"
+			# If current_delta is perished we just state it but don't process it
+			else
+				echo "$stock_info ${warn} Not processing perished delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta${txtrst} "
+				echo "delta timestamp: ${txtylw}$timestamp${txtrst}"
 			fi
 
-			# Finish up applying current delta
-			# Save delta timestamp and archive name in .dila-sync/applied-deltas
-			echo "$timestamp	$delta">>"$conf_dir/applied-deltas"
-			# Finally, update stock_date to the current delta timestamp
-			local_stock_date=$timestamp
+			# Next delta
+			let current_delta++
+		done <<< "$fresh_deltas"
+	fi
 
-			# Done, the current delta was applied
-			echo
-			echo "${ok} ${txtbld}Done applying delta $current_delta/$fresh_deltas_count [$timestamp]${txtrst}"
+	# Recap
+	# -----
+	echo
+	echo "$stock_info ${info} Up to date."
+	echo "${txtund}Deltas applied:${txtrst} ${col}$fresh_deltas_count${txtrst}"
+	echo "${txtund}Stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
 
-		# If current_delta is perished we just state it but don't process it
-		else
-			echo "${warn} Not processing perished delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta${txtrst} "
-			echo "delta timestamp: ${txtylw}$timestamp${txtrst}"
-		fi
-
-		# Next delta
-		let current_delta++
-	done <<< "$fresh_deltas"
-fi
-
-# Recap
-# -----
-echo
-echo "${info} Up to date."
-echo "${txtund}Deltas applied:${txtrst} ${col}$fresh_deltas_count${txtrst}"
-echo "${txtund}Stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
+done
