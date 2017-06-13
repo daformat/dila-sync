@@ -1,16 +1,6 @@
 # Dila-sync
 
-This script uses wget (required), git (optionnal) and pv (optionnal) to synchronize the French DILA open data .xml stocks described below.
-
-## Usage
-```shell
-./dila-sync.sh [-hgv] stock_name [stock_name...]
-```
-- `h` print help
-- `v` verbose
-- `g` use git for versionning. **See below**
-
-You have to provide at least one `stock_name` for `dila-sync` to synchronize it, here is the list of the stocks supported:
+This script uses [wget](https://www.gnu.org/software/wget/) (required), [git](https://git-scm.com/) (optionnal) and pv (optionnal) to synchronize one or many of the following open data .xml stocks from France's [DILA (Direction de l'Information Légale et Adminsitrative)](http://www.dila.premier-ministre.gouv.fr/):
 
 - [legi](ftp://ftp2.journal-officiel.gouv.fr/LEGI/) - ftp://ftp2.journal-officiel.gouv.fr/LEGI/
 - [capp](ftp://ftp2.journal-officiel.gouv.fr/CAPP/) - ftp://ftp2.journal-officiel.gouv.fr/CAPP/
@@ -21,6 +11,16 @@ You have to provide at least one `stock_name` for `dila-sync` to synchronize it,
 - [jade](ftp://ftp2.journal-officiel.gouv.fr/JADE/) - ftp://ftp2.journal-officiel.gouv.fr/JADE/
 - [kali](ftp://ftp2.journal-officiel.gouv.fr/KALI/) - ftp://ftp2.journal-officiel.gouv.fr/KALI/
 - [sarde](ftp://ftp2.journal-officiel.gouv.fr/SARDE/) - ftp://ftp2.journal-officiel.gouv.fr/SARDE/
+
+## Usage
+```shell
+./dila-sync.sh [-hgv] stock_name [stock_name...]
+```
+- `h` print help
+- `v` verbose
+- `g` use git for versionning. **See below**
+
+You have to provide at least one `stock_name` for `dila-sync` to synchronize it, see the list above for the supported stocks.
 
 ## Using git
 
