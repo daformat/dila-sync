@@ -12,15 +12,15 @@ This script uses wget (required), git (optionnal) and pv (optionnal) to synchron
 
 You have to provide at least one `stock_name` for `dila-sync` to synchronize it, here is the list of the stocks supported:
 
-- [legi](ftp://ftp2.journal-officiel.gouv.fr:21/LEGI/)
-- [capp](ftp://ftp2.journal-officiel.gouv.fr:21/CAPP/)
-- [cass](ftp://ftp2.journal-officiel.gouv.fr:21/CASS/)
-- [cnil](ftp://ftp2.journal-officiel.gouv.fr:21/CNIL/)
-- [constit](ftp://ftp2.journal-officiel.gouv.fr:21/CONSTIT/)
-- [inca](ftp://ftp2.journal-officiel.gouv.fr:21/INCA/)
-- [jade](ftp://ftp2.journal-officiel.gouv.fr:21/JADE/)
-- [kali](ftp://ftp2.journal-officiel.gouv.fr:21/KALI/)
-- [sarde](ftp://ftp2.journal-officiel.gouv.fr:21/SARDE/)
+- [legi](ftp://ftp2.journal-officiel.gouv.fr/LEGI/)
+- [capp](ftp://ftp2.journal-officiel.gouv.fr/CAPP/)
+- [cass](ftp://ftp2.journal-officiel.gouv.fr/CASS/)
+- [cnil](ftp://ftp2.journal-officiel.gouv.fr/CNIL/)
+- [constit](ftp://ftp2.journal-officiel.gouv.fr/CONSTIT/)
+- [inca](ftp://ftp2.journal-officiel.gouv.fr/INCA/)
+- [jade](ftp://ftp2.journal-officiel.gouv.fr/JADE/)
+- [kali](ftp://ftp2.journal-officiel.gouv.fr/KALI/)
+- [sarde](ftp://ftp2.journal-officiel.gouv.fr/SARDE/)
 
 ## Using git
 
