@@ -1,5 +1,6 @@
 
 .dila-sync/
 .tmp/
+logs/
 stock/
 .*
