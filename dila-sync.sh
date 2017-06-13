@@ -99,6 +99,8 @@ config=(
 
 # Create .dila-sync if not already exisiting
 mkdir -p "$conf_dir"
+# Create .tmp if not already exisiting
+mkdir -p "$script_dir/.tmp"
 
 # Try to read config
 if [ -r $config_file ]
@@ -178,17 +180,17 @@ command_status () {
 	fi
 }
 
-get_last_applied_delta_for_stock () {
+get_applied_deltas_for_stock () {
 	if [ -r "$conf_dir/applied-deltas" ]
 	then
-		cat "$conf_dir/applied-deltas" | grep "	${1}_"
+		cat "$conf_dir/applied-deltas" | grep "	${1}_" | cut -f1 | sed 's/^\s*$//g'
 	fi
 }
 
 get_last_global_import_for_stock () {
 	if [ -r "$conf_dir/stocks" ]
 	then
-		cat "$conf_dir/stocks" | grep "	Freemium_${1}_"
+		cat "$conf_dir/stocks" | grep "	Freemium_${1}_" | tail -n1 | cut -f1 | sed 's/^\s*$//g'
 	fi
 }
 
@@ -252,35 +254,39 @@ do
 	stocks_to_sync="$stocks_to_sync$stock_to_sync\n"
 
 	stock_info="${txtpnk}${txtbld}[$stock_to_sync]${txtrst}"
+	echo "${txtylw}${txtbld}Synchronizing ${stock_info}"
+	echo
 
 	stock_remote="${remote}$(echo $stock_to_sync | tr '[:lower:]' '[:upper:]')/"
 	stock_git_watch_dirs=$(echo $git_watch_dirs | grep -E "^\./stock/$stock_to_sync")
 	stock_git_watch_dirs_count=$(echo $git_watch_dirs | grep -E "^\./stock/$stock_to_sync" | wc -l)
 
 	local_stock_date=0
+	local_stock_date_info="no delta applied yet"
+	is_first_run=1
 
-	# Determine local stock date
 	# We first check if any delta was applied
-	applied_deltas=$(get_last_applied_delta_for_stock $stock_to_sync)
-	applied_deltas_count=$(echo $applied_deltas | wc -l)
-	if [ -z applied_deltas_count ]
+	applied_deltas=$(get_applied_deltas_for_stock $stock_to_sync)
+	applied_deltas_count=$(echo $applied_deltas | grep -E "^\d.*" | wc -l)
+	if [ $applied_deltas_count -gt 0 ]
 	then
-		# If no delta was already applied, check if any matching stock has already
-		# been imported
-		local_stock_date_info="no delta applied yet"
-		local_stock_date=$(get_last_global_import_for_stock $stock_to_sync | tail -n1 | cut -f1)
-	else
 		# If we already applied delta on the current stock_to_sync, use the last one
 		local_stock_date_info="$applied_deltas_count delta$([[ $applied_deltas_count -gt 1 ]] && echo "s") applied"
 		local_stock_date=$(echo $applied_deltas | tail -n1 | cut -f1)
+		is_first_run=0
+	else
+		# Determine local stock date from stock if no delta was already applied
+		if [ $(get_last_global_import_for_stock $stock_to_sync | wc -l) -gt 0 ]
+		then
+			local_stock_date=$(get_last_global_import_for_stock $stock_to_sync)
+			is_first_run=0
+		fi
 	fi
 
 	# At this point if we were unable to find any local_stock_date, it's the
 	# first run on the current $stock_to_sync
-	if [ -z $local_stock_date ]
+	if [ $is_first_run -eq 1 ]
 	then
-		local_stock_date=0
-		is_first_run=1
 		# Stock first run message
 		cat <<-EOF
 			${txtbld}First sync${txtrst} ${stock_info}
@@ -288,9 +294,6 @@ do
 			This might take some time... Enjoy your coffee!
 
 		EOF
-	else
-		is_first_run=0
-		echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst} ($local_stock_date_info)"
 	fi
 
 	if [ $use_git -gt 0 -a $stock_git_watch_dirs_count -gt 0 ]
@@ -301,10 +304,16 @@ do
 			$stock_git_watch_dirs_count directories are to be versioned for the stock $stock_to_sync.
 
 		EOF
-
 		debug "${txtpnk}<git-watch>\n${txtcyn}$stock_git_watch_dirs\n${txtpnk}</git-watch>${txtrst} \n" 1
-
 	fi
+
+	# Display local stock date if we already have some local stock
+	if [ -n $local_stock_date -a $local_stock_date -gt 0 ]
+	then
+		echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst} ($local_stock_date_info)"
+		echo
+	fi
+
 	# Fetch stock and deltas list from remote
 	# ---------------------------------------
 	debug "\n$stock_info ${txtund}Remote:${txtrst} ${txtcyn}$remote${txtrst}" 1
@@ -387,8 +396,6 @@ do
 	# If it's the first run we have to download and untar the global stock
 	if [ $is_first_run -eq 1 ]
 	then
-		# Create .tmp if not already exisiting
-		mkdir -p "$script_dir/.tmp"
 
 		# Get the global stock
 		echo
@@ -402,20 +409,26 @@ do
 		# Create directory if not already exisiting
 		mkdir -p "$script_dir/stock"
 
+		# On global stocks we have to do a pre-check to see if we need to strip_components
+		# "cass" and "capp" are two examples of stocks containing a timestamp
+		# as their root folder
+		strip_components=$(tar -tzf "$script_dir/.tmp/$stock" | head -n1 | grep -E "^\d{8}-\d{6}/$" | wc -l)
+		[[ strip_components -gt 0 ]] && echo "${stock_info} ${warn} The archive's root folder containes a timestamp, it will be stripped upon extraction"
+
 		if [ $log_level -gt 0 ]
 		then
 			echo $message
-			tar -xzvf "$script_dir/.tmp/$stock" -C "$script_dir/stock"
+			tar -xzvf "$script_dir/.tmp/$stock" -C "$script_dir/stock" --strip-components $strip_components
 			command_status "$stock_info Error while extracting the global stock archive." "$stock unpacked, timestamp: ${txtylw}$stock_date${txtrst}"
 		else
 			if [ pv_installed ]
 			then
 				echo $message
-				pv "$script_dir/.tmp/$stock" | tar -xzf - -C "$script_dir/stock"
+				pv "$script_dir/.tmp/$stock" | tar -xzf - -C "$script_dir/stock" --strip-components $strip_components
 				command_status "$stock_info Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
 			else
 				echo -n $message
-				tar -xzf "$script_dir/.tmp/$stock" -C "$script_dir/stock"
+				tar -xzf "$script_dir/.tmp/$stock" -C "$script_dir/stock" --strip-components $strip_components
 				command_status "$stock_info Error while extracting the global stock archive." "timestamp: ${txtylw}$stock_date${txtrst}"
 			fi
 		fi
@@ -615,5 +628,5 @@ do
 	echo "$stock_info ${info} Up to date."
 	echo "${txtund}Deltas applied:${txtrst} ${col}$fresh_deltas_count${txtrst}"
 	echo "${txtund}Stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
-
+	echo
 done
