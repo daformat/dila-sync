@@ -211,7 +211,7 @@ then
 	cat <<-EOF
 		${txtbld}First run${txtrst}
 		It appears that you are running ${txtund}${txtbld}dila-sync${txtrst} for the first time.
-		We need to download a fresh copy of the whole stock(s) and the latest deltas.
+		We will need to download a fresh copy of the whole stock(s) and the latest deltas.
 		This might take some time... Enjoy your coffee!
 
 	EOF
@@ -240,7 +240,7 @@ then
 	fi
 fi
 
-stocks_to_sync=""
+stocks_to_sync="";
 
 # On every stock_to_sync
 # ----------------------
@@ -254,8 +254,8 @@ do
 	stock_info="${txtpnk}${txtbld}[$stock_to_sync]${txtrst}"
 
 	stock_remote="${remote}$(echo $stock_to_sync | tr '[:lower:]' '[:upper:]')/"
-	stock_git_watch_dirs=$(echo $git_watch_dirs | grep "./stock/$stock_to_sync/")
-	stock_git_watch_dirs_count=$(echo -n $stock_git_watch_dirs | wc -l)
+	stock_git_watch_dirs=$(echo $git_watch_dirs | grep -E "^\./stock/$stock_to_sync")
+	stock_git_watch_dirs_count=$(echo $git_watch_dirs | grep -E "^\./stock/$stock_to_sync" | wc -l)
 
 	local_stock_date=0
 
@@ -293,8 +293,16 @@ do
 		echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst} ($local_stock_date_info)"
 	fi
 
+	if [ $use_git -gt 0 -a $stock_git_watch_dirs_count -gt 0 ]
+	then
+		cat <<-EOF
+			${txtbld}Using Git${txtrst}
+			${txtund}${txtbld}dila-sync${txtrst} is set up to use ${txtund}${txtbld}git${txtrst} for versioning.
+			$stock_git_watch_dirs_count directories are to be versioned for the stock $stock_to_sync.
+			$stock_git_watch_dirs
 
-
+		EOF
+	fi
 	# Fetch stock and deltas list from remote
 	# ---------------------------------------
 	debug "\n$stock_info ${txtund}Remote:${txtrst} ${txtcyn}$remote${txtrst}" 1
