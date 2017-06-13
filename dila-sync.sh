@@ -1,13 +1,14 @@
 #!/bin/zsh
 
 script_dir=`dirname $0`
-config_file="$script_dir/.dila-sync/config"
+conf_dir="$script_dir/.dila-sync"
+config_file="$conf_dir/config"
 log_level=0
 use_git=0
+is_first_run=1
 # If you want to use git to version the deltas you must create a
 # .dila-sync-gitwatch text file listing every directory to be versioned
-# it should contain a single path per line
-# path are relative to the script directory
+# with a single path per line, paths are relative to script directory
 watch_dirs_file="$script_dir/.dila-sync-gitwatch"
 if [ -r "$watch_dirs_file" ]
 then
@@ -88,7 +89,6 @@ shift "$((OPTIND-1))"
 
 # Config
 # ------
-
 typeset -A config
 
 # Default config
@@ -98,7 +98,7 @@ config=(
 )
 
 # Create .dila-sync if not already exisiting
-mkdir -p "$script_dir/.dila-sync"
+mkdir -p "$conf_dir"
 
 # Try to read config
 if [ -r $config_file ]
@@ -111,7 +111,11 @@ then
       config[$varname]=$(echo "$line" | cut -d '=' -f 2-)
     fi
   done < $config_file
+	# So then, it's not the first run anymore
+	is_first_run=0
 fi
+
+remote=$config[remote]
 
 # $config[use_git] takes precedence over -g script option
 # Since if we didn't initialized the stock with git, nothing
@@ -130,9 +134,9 @@ then
 	use_git=$config[use_git]
 fi
 
+
 # Helpers
 # -------
-
 pv_installed=$(hash pv 2>/dev/null)
 
 # Extract timestamp from a single filename
@@ -166,20 +170,32 @@ format_timestamp () {
 command_status () {
 	if [ $? -ne 0 ]
 	then
-		echo "${txtred}Error${txtrst}"
+		echo "${txtred}${txtbld}Error${txtrst}"
 		echo "${error} $1"
 		exit 1
 	else
-		echo "${txtgrn}Ok${txtrst} $2"
+		echo "${ok} $2"
 	fi
 }
 
+
 # Start
 # -----
+local_stock_date=0
 
-# Display a message if it's the first run
-if [ -z $config[last_delta] -o $config[last_delta] -eq 0 ]
+
+# First run
+# ---------
+# create config file and display a few messages
+if [ $is_first_run -eq 1 ]
 then
+	# Save config file
+	cat <<-EOF > "$conf_dir/config"
+		remote=$remote
+		use_git=$use_git
+	EOF
+
+	# First run message
 	cat <<-EOF
 		${txtbld}First run${txtrst}
 		It appears that you are running ${txtund}${txtbld}dila-sync${txtrst} for the first time.
@@ -187,7 +203,6 @@ then
 		This might take some time... Enjoy your coffee!
 
 	EOF
-	local_stock_date=0
 
 	# Additionnally display a warning if git is used for versioning
 	if [ $use_git -ne 0 ]
@@ -212,14 +227,28 @@ then
 		fi
 	fi
 else
-	local_stock_date=$config[last_delta]
-	echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
+	# Determine local stock date
+	# We first check if any delta was applied
+	if [ -r "$conf_dir/applied-deltas" ]
+	then
+		applied_deltas=$(cat "$conf_dir/applied-deltas")
+		applied_deltas_count=$(echo $applied_deltas | wc -l)
+		local_stock_date_info="$applied_deltas_count delta$([[ $applied_deltas_count -gt 1 ]] && echo "s") applied"
+		local_stock_date=$(echo $applied_deltas | tail -n1 | cut -f1)
+	elif [ -r "$conf_dir/stocks" ]
+	then
+		local_stock_date_info="no delta applied yet"
+		local_stock_date=$(cat "$conf_dir/stocks" | tail -n1 | cut -f1)
+	fi
+	echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst} ($local_stock_date_info)"
 fi
 
-remote=$config[remote]
+
+# Fetch stock and deltas list from remote
+# ---------------------------------------
 debug "\n${txtund}Remote:${txtrst} ${txtcyn}$remote${txtrst}\n" 1
 
-echo -n "Fetching stock index... "
+echo -n "Fetching stock and deltas... "
 wgetoutput=$(wget -T 10 -q -O - $remote)
 command_status "Error while getting remote data."
 
@@ -290,10 +319,11 @@ then
 	debug "${txtpnk}<fresh>\n${txtcyn}$fresh_deltas\n${txtpnk}</fresh>${txtrst} \n" 1
 fi
 
+
 # Global stock
 # ------------
 # If it's the first run we have to download and untar the global stock
-if [ -z $config[last_delta] -o $config[last_delta] -eq 0 ]
+if [ $is_first_run -eq 1 ]
 then
 	# Create .tmp if not already exisiting
 	mkdir -p "$script_dir/.tmp"
@@ -328,24 +358,44 @@ then
 		fi
 	fi
 
-	# Save original stock_date and archive name in .dila-sync/
-	echo "$stock_date	$stock">>"$script_dir/.dila-sync/stocks"
-
+	# Using git
 	if [ $use_git -gt 0 ]
 	then
 		# Init git repo
 		if [ $git_watch_dirs_count -eq 1 ]
 		then
-			echo "Initializing 1 git repository with global stock [$stock_date]..."
+			git_msg="Initializing 1 git repository with global stock [$stock_date]..."
 		else
-			echo "Initializing $git_watch_dirs_count git repositories with global stock [$stock_date]..."
+			git_msg="Initializing $git_watch_dirs_count git repositories with global stock [$stock_date]..."
 		fi
+		echo
+		echo ${info} $git_msg
+
+		i=1
 		while read git_watch_dir; do
-			debug "git init $git_watch_dir" 1
+			git_msg="[$i/$git_watch_dirs_count] ${txtcyn}git init $git_watch_dir${txtrst}"
+			if [ $log_level -gt 0 ]
+			then
+				# display a new line for each git repo if in verbose mode
+				debug $git_msg
+			else
+				# Replace previous line if not in verbose mode
+				echo -n "\r\033[K$git_msg"
+			fi
 			g=$(git init "$script_dir/$git_watch_dir" && git -C "$script_dir/$git_watch_dir" add . && git -C "$script_dir/$git_watch_dir" commit -m "Init with global stock [$stock_date]")
 			# command_status "Error while initializing git repository"
+			let i++
 		done <<< "$git_watch_dirs"
+
+		# Print a newline if we didn't print any during the loop (eg. log_level=0)
+		# Delete last line if we're not in verbose mode
+		[[ $log_level -eq 0 ]] && echo -n "\r\033[K"
+		echo "${ok} Done comitting global stock"
 	fi
+
+	# Done with global stock
+	# Save original stock timestamp and archive name in .dila-sync/stocks
+	echo "$stock_date	$stock">>"$conf_dir/stocks"
 fi
 
 # Deltas
@@ -356,19 +406,22 @@ if [ $fresh_deltas_count -eq 0 ]
 then
 	echo "${info} No fresh delta is available"
 else
-	echo "${info} Downloading $fresh_deltas_count fresh deltas..."
-	$(echo $fresh_deltas | sed -e "s@^@$remote@g" | wget -N -T 10 -q --show-progress -P ./.tmp -i -)
-	command_status "Error while getting remote data."
+	echo "${info} Fetch and apply $fresh_deltas_count fresh deltas..."
 
-	# Be it the first run or another one, apply fresh deltas, sequentially
+	# Fetch and apply fresh deltas, sequentially
 	current_delta=1
 	while read delta; do
 		echo
 		timestamp=$(get_timestamp $delta)
 
-		# We only care about deltas that are fresher
+		# We only care about deltas that are fresher than our local stock
 		if [ $timestamp -gt $local_stock_date ]
 		then
+			echo "${info} Downloading delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
+			$(echo $delta | sed -e "s@^@$remote@g" | wget -N -T 10 -q --show-progress -P ./.tmp -i -)
+			command_status "Error while getting remote data."
+			echo
+
 			# Unpack archive
 			message="${info} Unpacking delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
 			if [ $log_level -gt 0 ]
@@ -400,44 +453,81 @@ else
 					do
 						perished_filepath=$(echo $perished | sed 's@\(^.*\)/\([^/]\+\)$@\1@')
 						perished_filename=$(echo $perished | sed 's@\(^.*\)/\([^/]\+\)$@\2@')
-						file=$(find "$script_dir/stock/$perished_filepath" -maxdepth 1 -name "$perished_filename*" -print)
-						if [ -z $file ]
+						file=$(find "$script_dir/stock/$perished_filepath" -maxdepth 1 -name "$perished_filename*" -print 2>/dev/null)
+						find_return_code=$?
+
+						# Display warning if no file was found
+						if [ -z $file -o $find_return_code -gt 0 ]
 						then
+							[[ $log_level -eq 0 ]] && echo -n "\r\033"
 							debug "${warn} unable to find $script_dir/stock/$perished_filepath/$perished_filename*"
-							debug "-> current line: $perished [in $perished_files]"
+							debug "    current line: $perished\n    [in $perished_files]"
+
+						# If a file was found, delete it
 						else
-							debug "deleting $file"
+							# Display file to be deleted (non-verbose)
+							[[ $log_level -eq 0 ]] && echo -n "\r\033[Kdeleting $file"
+							# Display file to be deleted (verbose)
+							debug "deleting $file" 1
 							rm "$file"
 						fi
 					done < "$perished_files"
-					debug "deleting perished files list $perished_files"
+
+					# Delete last line if we're not in verbose mode
+					[[ $log_level -eq 0 ]] && echo -n "\r\033[K"
+
+					# Now, we can delete the perished files list
+					debug "deleting perished files list $perished_files" 1
 					rm "$perished_files"
+
+					echo "${ok} Done deleting perished files"
 				else
 					echo "${info} no perished files in delta"
 				fi
 			done <<< "$deletion_lists"
 
-			# Save delta timestamp and archive name in .dila-sync/
-			echo "$timestamp	$delta">>"$script_dir/.dila-sync/applied-deltas"
-
+			# Using git
 			if [ $use_git -gt 0 ]
 			then
 				# Commit in git repos
 				if [ $git_watch_dirs_count -eq 1 ]
 				then
-					echo "Committing delta $current_delta/$fresh_deltas_count [$timestamp] in 1 repository..."
+					git_msg="Committing delta $current_delta/$fresh_deltas_count [$timestamp] in 1 repository..."
 				else
-					echo "Committing delta $current_delta/$fresh_deltas_count [$timestamp] in $git_watch_dirs_count repositories..."
+					git_msg="Committing delta $current_delta/$fresh_deltas_count [$timestamp] in $git_watch_dirs_count repositories..."
 				fi
+				echo
+				echo ${info} $git_msg
+				i=1
 				while read git_watch_dir; do
-					debug "Committing in $git_watch_dir" 1
+					git_msg="[$i/$git_watch_dirs_count] ${txtcyn}Committing in $git_watch_dir${txtrst}"
+					if [ $log_level -gt 0 ]
+					then
+						# display a new line for each git repo if in verbose mode
+						debug $git_msg
+					else
+						# Replace previous line if not in verbose mode
+						echo -n "\r\033[K$git_msg"
+					fi
 					g=$(git -C "$script_dir/$git_watch_dir" add -A && git -C "$script_dir/$git_watch_dir" commit -m "Apply delta [$timestamp]")
 					# command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
+					let i++
 				done <<< "$git_watch_dirs"
+
+				# Delete last line if we're not in verbose mode
+				[[ $log_level -eq 0 ]] && echo -n "\r\033[K"
+				echo "${ok} Done comitting delta"
 			fi
 
-			# Finally replace stock_date by the current delta timestamp
+			# Finish up applying current delta
+			# Save delta timestamp and archive name in .dila-sync/applied-deltas
+			echo "$timestamp	$delta">>"$conf_dir/applied-deltas"
+			# Finally, update stock_date to the current delta timestamp
 			local_stock_date=$timestamp
+
+			# Done, the current delta was applied
+			echo
+			echo "${ok} ${txtbld}Done applying delta $current_delta/$fresh_deltas_count [$timestamp]${txtrst}"
 
 		# If current_delta is perished we just state it but don't process it
 		else
@@ -456,11 +546,3 @@ echo
 echo "${info} Up to date."
 echo "${txtund}Deltas applied:${txtrst} ${col}$fresh_deltas_count${txtrst}"
 echo "${txtund}Stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
-
-# We currently always save config infos.
-# This might change in the future
-cat <<-EOF > "$script_dir/.dila-sync/config"
-	remote=$remote
-	last_delta=$local_stock_date
-	use_git=$use_git
-EOF
