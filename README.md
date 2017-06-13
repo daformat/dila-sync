@@ -12,15 +12,15 @@ This script uses wget (required), git (optionnal) and pv (optionnal) to synchron
 
 You have to provide at least one `stock_name` for `dila-sync` to synchronize it, here is the list of the stocks supported:
 
-- [legi](ftp://ftp2.journal-officiel.gouv.fr/LEGI/)
-- [capp](ftp://ftp2.journal-officiel.gouv.fr/CAPP/)
-- [cass](ftp://ftp2.journal-officiel.gouv.fr/CASS/)
-- [cnil](ftp://ftp2.journal-officiel.gouv.fr/CNIL/)
-- [constit](ftp://ftp2.journal-officiel.gouv.fr/CONSTIT/)
-- [inca](ftp://ftp2.journal-officiel.gouv.fr/INCA/)
-- [jade](ftp://ftp2.journal-officiel.gouv.fr/JADE/)
-- [kali](ftp://ftp2.journal-officiel.gouv.fr/KALI/)
-- [sarde](ftp://ftp2.journal-officiel.gouv.fr/SARDE/)
+- [legi](ftp://ftp2.journal-officiel.gouv.fr/LEGI/) - ftp://ftp2.journal-officiel.gouv.fr/LEGI/
+- [capp](ftp://ftp2.journal-officiel.gouv.fr/CAPP/) - ftp://ftp2.journal-officiel.gouv.fr/CAPP/
+- [cass](ftp://ftp2.journal-officiel.gouv.fr/CASS/) - ftp://ftp2.journal-officiel.gouv.fr/CASS/
+- [cnil](ftp://ftp2.journal-officiel.gouv.fr/CNIL/) - ftp://ftp2.journal-officiel.gouv.fr/CNIL/
+- [constit](ftp://ftp2.journal-officiel.gouv.fr/CONSTIT/) - ftp://ftp2.journal-officiel.gouv.fr/CONSTIT/
+- [inca](ftp://ftp2.journal-officiel.gouv.fr/INCA/) - ftp://ftp2.journal-officiel.gouv.fr/INCA/
+- [jade](ftp://ftp2.journal-officiel.gouv.fr/JADE/) - ftp://ftp2.journal-officiel.gouv.fr/JADE/
+- [kali](ftp://ftp2.journal-officiel.gouv.fr/KALI/) - ftp://ftp2.journal-officiel.gouv.fr/KALI/
+- [sarde](ftp://ftp2.journal-officiel.gouv.fr/SARDE/) - ftp://ftp2.journal-officiel.gouv.fr/SARDE/
 
 ## Using git
 
@@ -28,7 +28,7 @@ In order to use git to version some parts of the stock, you need to create a fil
 
 This file should contain **no more than a single path to version per line, relative to the script directory (so it must include ./stock)**
 
-** Example **
+**Example**
 ```shell
 # Create .dila-sync-gitwatch
 touch .dila-sync-gitwatch
