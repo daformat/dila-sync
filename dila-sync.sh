@@ -299,9 +299,11 @@ do
 			${txtbld}Using Git${txtrst}
 			${txtund}${txtbld}dila-sync${txtrst} is set up to use ${txtund}${txtbld}git${txtrst} for versioning.
 			$stock_git_watch_dirs_count directories are to be versioned for the stock $stock_to_sync.
-			$stock_git_watch_dirs
 
 		EOF
+
+		debug "${txtpnk}<git-watch>\n${txtcyn}$stock_git_watch_dirs\n${txtpnk}</git-watch>${txtrst} \n" 1
+
 	fi
 	# Fetch stock and deltas list from remote
 	# ---------------------------------------
