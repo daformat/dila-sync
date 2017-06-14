@@ -1,16 +1,25 @@
 # Dila-sync
 
-This script uses [wget](https://www.gnu.org/software/wget/) (required), [git](https://git-scm.com/) (optionnal) and pv (optionnal) to synchronize one or many of the following open data .xml stocks from France's [DILA (Direction de l'Information Légale et Adminsitrative)](http://www.dila.premier-ministre.gouv.fr/):
+This script uses [wget](https://www.gnu.org/software/wget/) (required), [git](https://git-scm.com/) (optionnal) and pv (optionnal) to synchronize one or many of the following open data .xml stocks from France's [DILA (Direction de l'Information Légale et Adminsitrative)](http://www.dila.premier-ministre.gouv.fr/) legal datasets (données juridiques).
 
-- [legi](ftp://ftp2.journal-officiel.gouv.fr/LEGI/) - ftp://ftp2.journal-officiel.gouv.fr/LEGI/
-- [capp](ftp://ftp2.journal-officiel.gouv.fr/CAPP/) - ftp://ftp2.journal-officiel.gouv.fr/CAPP/
-- [cass](ftp://ftp2.journal-officiel.gouv.fr/CASS/) - ftp://ftp2.journal-officiel.gouv.fr/CASS/
-- [cnil](ftp://ftp2.journal-officiel.gouv.fr/CNIL/) - ftp://ftp2.journal-officiel.gouv.fr/CNIL/
-- [constit](ftp://ftp2.journal-officiel.gouv.fr/CONSTIT/) - ftp://ftp2.journal-officiel.gouv.fr/CONSTIT/
-- [inca](ftp://ftp2.journal-officiel.gouv.fr/INCA/) - ftp://ftp2.journal-officiel.gouv.fr/INCA/
-- [jade](ftp://ftp2.journal-officiel.gouv.fr/JADE/) - ftp://ftp2.journal-officiel.gouv.fr/JADE/
-- [kali](ftp://ftp2.journal-officiel.gouv.fr/KALI/) - ftp://ftp2.journal-officiel.gouv.fr/KALI/
-- [sarde](ftp://ftp2.journal-officiel.gouv.fr/SARDE/) - ftp://ftp2.journal-officiel.gouv.fr/SARDE/
+
+## Supported legal open datasets
+
+Name       | Description and url
+-----------|--------------------
+LEGI       | Codes, lois et règlements consolidés <br> ftp://ftp2.journal-officiel.gouv.fr/LEGI/
+JORF       | Textes publiés au Journal officiel de la République française <br> ftp://ftp2.journal-officiel.gouv.fr/JORF/
+JORFSIMPLE | Version simplifiée du Journal officiel <br> ftp://ftp2.journal-officiel.gouv.fr/JORFSIMPLE/
+KALI       | Conventions collectives nationales <br> ftp://ftp2.journal-officiel.gouv.fr/KALI/
+CASS       | Arrêts publiés de la Cour de cassation <br> ftp://ftp2.journal-officiel.gouv.fr/CASS/
+INCA       | Arrêts inédits de la Cour de cassation <br> ftp://ftp2.journal-officiel.gouv.fr/INCA/
+CAPP       | Décisions des cours d’appel et des juridictions judiciaires de premier degré <br> ftp://ftp2.journal-officiel.gouv.fr/CAPP/
+CONSTIT    | Décisions du Conseil constitutionnel <br> ftp://ftp2.journal-officiel.gouv.fr/CONSTIT/
+JADE       | Décisions des juridictions administratives <br> ftp://ftp2.journal-officiel.gouv.fr/JADE/
+CNIL       | Délibérations de la CNIL <br> ftp://ftp2.journal-officiel.gouv.fr/CNIL/
+SARD       | Référentiel thématique sur la majeure partie des textes législatifs et réglementaires en vigueur <br> ftp://ftp2.journal-officiel.gouv.fr/SARD/
+
+For a more detailed explanation, view [Licences données juridiques (page in french)](http://rip.journal-officiel.gouv.fr/index.php/pages/juridiques) on DILA's Répertoire des Informations Publiques.
 
 ## Usage
 ```shell
