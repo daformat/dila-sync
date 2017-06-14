@@ -58,7 +58,7 @@ debug () {
 }
 
 # Script Options
-while getopts "hvg" option
+while getopts "hvgl:" option
 do
 	case "$option" in
 		h)
@@ -73,6 +73,10 @@ do
 		g)
 			# Use git for versioning (Yolo style)
 			use_git=1
+			;;
+		l)
+			# Limit wget download rate (see wget's --limit-rate option)
+			limit_wget_rate=$OPTARG
 			;;
 		*)
 			usage >&2
@@ -191,6 +195,13 @@ get_last_global_import_for_stock () {
 	if [ -r "$conf_dir/stocks" ]
 	then
 		cat "$conf_dir/stocks" | grep "	Freemium_${1}_" | tail -n1 | cut -f1 | sed 's/^\s*$//g'
+	fi
+}
+
+limit_rate_opts () {
+	if [ -n "${limit_wget_rate}" ]
+	then
+		echo -n "--limit-rate=$limit_wget_rate"
 	fi
 }
 
@@ -320,7 +331,7 @@ do
 	debug "$stock_info ${txtund}Stock remote:${txtrst} ${txtcyn}$stock_remote${txtrst}\n" 1
 
 	echo -n "$stock_info Fetching stock and deltas... "
-	wgetoutput=$(wget -T 10 -q -O - $stock_remote)
+	wgetoutput=$(wget $(limit_rate_opts) -T 10 -q -O - $stock_remote)
 	command_status "Error while getting remote data."
 
 	# Now let's get only the actual urls
@@ -400,7 +411,7 @@ do
 		# Get the global stock
 		echo
 		echo "$stock_info ${info} Downloading global stock..."
-		$(wget -N -T 10 -q --show-progress -P ./.tmp "${stock_remote}${stock}")
+		$(wget $(limit_rate_opts) -N -T 10 -q --show-progress -P ./.tmp "${stock_remote}${stock}")
 		command_status "Error while getting remote data."
 
 		# Untar the global stock
@@ -493,7 +504,7 @@ do
 			if [ $timestamp -gt $local_stock_date ]
 			then
 				echo "$stock_info ${info} Downloading delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
-				$(echo $delta | sed -e "s@^@$stock_remote@g" | wget -N -T 10 -q --show-progress -P ./.tmp -i -)
+				$(echo $delta | sed -e "s@^@$stock_remote@g" | wget $(limit_rate_opts) -N -T 10 -q --show-progress -P ./.tmp -i -)
 				command_status "Error while getting remote data."
 				echo
 
