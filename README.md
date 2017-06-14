@@ -9,7 +9,6 @@ Name       | Description and url
 -----------|--------------------
 LEGI       | Codes, lois et règlements consolidés <br> ftp://ftp2.journal-officiel.gouv.fr/LEGI/
 JORF       | Textes publiés au Journal officiel de la République française <br> ftp://ftp2.journal-officiel.gouv.fr/JORF/
-JORFSIMPLE | Version simplifiée du Journal officiel <br> ftp://ftp2.journal-officiel.gouv.fr/JORFSIMPLE/
 KALI       | Conventions collectives nationales <br> ftp://ftp2.journal-officiel.gouv.fr/KALI/
 CASS       | Arrêts publiés de la Cour de cassation <br> ftp://ftp2.journal-officiel.gouv.fr/CASS/
 INCA       | Arrêts inédits de la Cour de cassation <br> ftp://ftp2.journal-officiel.gouv.fr/INCA/
@@ -18,6 +17,8 @@ CONSTIT    | Décisions du Conseil constitutionnel <br> ftp://ftp2.journal-offic
 JADE       | Décisions des juridictions administratives <br> ftp://ftp2.journal-officiel.gouv.fr/JADE/
 CNIL       | Délibérations de la CNIL <br> ftp://ftp2.journal-officiel.gouv.fr/CNIL/
 SARD       | Référentiel thématique sur la majeure partie des textes législatifs et réglementaires en vigueur <br> ftp://ftp2.journal-officiel.gouv.fr/SARD/
+
+JORFSIMPLE is **not supported yet** (Version simplifiée du Journal officiel - ftp://ftp2.journal-officiel.gouv.fr/JORFSIMPLE/)
 
 For a more detailed explanation, view [Licences données juridiques (page in french)](http://rip.journal-officiel.gouv.fr/index.php/pages/juridiques) on DILA's Répertoire des Informations Publiques.
 
