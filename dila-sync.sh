@@ -265,7 +265,7 @@ do
 	stocks_to_sync="$stocks_to_sync$stock_to_sync\n"
 
 	stock_info="${txtpnk}${txtbld}[$stock_to_sync]${txtrst}"
-	echo "${txtylw}${txtbld}Synchronizing ${stock_info}"
+	echo "${info} ${txtylw}${txtbld}Synchronizing ${stock_info}"
 	echo
 
 	stock_remote="${remote}$(echo $stock_to_sync | tr '[:lower:]' '[:upper:]')/"
@@ -282,7 +282,7 @@ do
 	if [ $applied_deltas_count -gt 0 ]
 	then
 		# If we already applied delta on the current stock_to_sync, use the last one
-		local_stock_date_info="$applied_deltas_count delta$([[ $applied_deltas_count -gt 1 ]] && echo "s") applied"
+		local_stock_date_info="$applied_deltas_count delta$([[ $applied_deltas_count -gt 1 ]] && echo "s") applied since import"
 		local_stock_date=$(echo $applied_deltas | tail -n1 | cut -f1)
 		is_first_run=0
 	else
@@ -410,13 +410,13 @@ do
 
 		# Get the global stock
 		echo
-		echo "$stock_info ${info} Downloading global stock..."
+		echo "$stock_info Downloading global stock..."
 		$(wget $(limit_rate_opts) -N -T 10 -q --show-progress -P ./.tmp "${stock_remote}${stock}")
 		command_status "Error while getting remote data."
 
 		# Untar the global stock
 		echo
-		message="$stock_info ${info} Extracting global stock ${txtcyn}$stock...${txtrst}"
+		message="$stock_info Extracting global stock ${txtcyn}$stock...${txtrst}"
 		# Create directory if not already exisiting
 		mkdir -p "$script_dir/stock"
 
@@ -455,7 +455,7 @@ do
 				git_msg="Initializing $stock_git_watch_dirs_count git repositories with global stock [$stock_date]..."
 			fi
 			echo
-			echo "$stock_info ${info} $git_msg"
+			echo "$stock_info $git_msg"
 
 			i=1
 			while read git_watch_dir; do
@@ -490,9 +490,9 @@ do
 	echo
 	if [ $fresh_deltas_count -eq 0 ]
 	then
-		echo "$stock_info ${info} No fresh delta is available"
+		echo "$stock_info No fresh delta is available"
 	else
-		echo "$stock_info ${info} Fetch and apply $fresh_deltas_count fresh deltas..."
+		echo "$stock_info Fetch and apply $fresh_deltas_count fresh deltas..."
 
 		# Fetch and apply fresh deltas, sequentially
 		current_delta=1
@@ -503,13 +503,13 @@ do
 			# We only care about deltas that are fresher than our local stock
 			if [ $timestamp -gt $local_stock_date ]
 			then
-				echo "$stock_info ${info} Downloading delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
+				echo "$stock_info Downloading delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
 				$(echo $delta | sed -e "s@^@$stock_remote@g" | wget $(limit_rate_opts) -N -T 10 -q --show-progress -P ./.tmp -i -)
 				command_status "Error while getting remote data."
 				echo
 
 				# Unpack archive
-				message="$stock_info ${info} Unpacking delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
+				message="$stock_info Unpacking delta $current_delta/$fresh_deltas_count: ${txtcyn}$delta...${txtrst} "
 				if [ $log_level -gt 0 ]
 				then
 					echo $message
@@ -536,7 +536,7 @@ do
 					then
 						perished_files_deleted=0;
 						perished_files_not_found=0;
-						echo "$stock_info ${info} Deleting perished files"
+						echo "$stock_info Deleting perished files"
 						while read perished
 						do
 							perished_filepath=$(echo $perished | sed 's@\(^.*\)/\([^/]\+\)$@\1@')
@@ -590,7 +590,7 @@ do
 						git_msg="Committing delta $current_delta/$fresh_deltas_count [$timestamp] in $stock_git_watch_dirs_count repositories..."
 					fi
 					echo
-					echo "$stock_info ${info} $git_msg"
+					echo "$stock_info $git_msg"
 					i=1
 					while read git_watch_dir; do
 						git_msg="[$i/$stock_git_watch_dirs_count] ${txtcyn}Committing in $git_watch_dir${txtrst}"
@@ -636,8 +636,21 @@ do
 	# Recap
 	# -----
 	echo
-	echo "$stock_info ${info} Up to date."
-	echo "${txtund}Deltas applied:${txtrst} ${col}$fresh_deltas_count${txtrst}"
+	echo "${txtbld}Done synchronizing${txtrst} $stock_info"
+	[[ $fresh_deltas_count -gt 0 ]] && col=$txtgrn || col=$txtpnk
+	echo "${txtund}Fresh deltas applied:${txtrst} ${col}$fresh_deltas_count${txtrst}"
+	echo "${txtund}Total deltas applied:${txtrst} ${col}$(($applied_deltas_count + $fresh_deltas_count))${txtrst}"
 	echo "${txtund}Stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
 	echo
+
+	# Save status
+	if [ $fresh_deltas_count -gt 0 ]
+	then
+		synced_stocks_status="$synced_stocks_status${txtbld}${txtcyn}[ • $stock_to_sync ]${txtrst} "
+	else
+		synced_stocks_status="$synced_stocks_status$stock_info "
+	fi
 done
+
+# Completed - All stocks were synced
+echo "$ok ${txtbld}Completed sync for $synced_stocks_status"
