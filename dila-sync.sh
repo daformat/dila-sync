@@ -636,11 +636,11 @@ do
 	# Recap
 	# -----
 	echo
-	echo "${txtbld}Done synchronizing${txtrst} $stock_info"
+	echo "$info ${txtbld}Done synchronizing${txtrst} $stock_info"
 	[[ $fresh_deltas_count -gt 0 ]] && col=$txtgrn || col=$txtpnk
 	echo "${txtund}Fresh deltas applied:${txtrst} ${col}$fresh_deltas_count${txtrst}"
 	echo "${txtund}Total deltas applied:${txtrst} ${col}$(($applied_deltas_count + $fresh_deltas_count))${txtrst}"
-	echo "${txtund}Stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
+	echo "${txtund}Local stock date:${txtrst} ${txtcyn}$(format_timestamp $local_stock_date)${txtrst}"
 	echo
 
 	# Save status
