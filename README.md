@@ -22,17 +22,26 @@ JORFSIMPLE is **not supported yet** (Version simplifiée du Journal officiel - f
 
 For a more detailed explanation, view [Licences données juridiques (page in french)](http://rip.journal-officiel.gouv.fr/index.php/pages/juridiques) on DILA's Répertoire des Informations Publiques.
 
+
 ## Usage
+
 ```shell
-./dila-sync.sh [-hgv] stock_name [stock_name...]
+./dila-sync.sh [-hgv] [-l rate_limit] stock_name [stock_name...]
 ```
-- `h` print help
-- `v` verbose
-- `g` use git for versionning. **See below**
 
-You have to provide at least one `stock_name` for `dila-sync` to synchronize it, see the list above for the supported stocks.
+### Options
+- `-h` print help
+- `-g` use git for versioning. **See below**
+- `-v` verbose
 
-## Using git
+- `-l` `rate_limit` limit wget download rate to `rate_limit`.
+
+### Arguments
+**`stock_name`**  
+You have to provide at least one `stock_name` for `dila-sync` to synchronize it, see the list above for the supported stocks. `stock_name` can be either uppercase, lowercase, or a mix of it if you're feeling funky.
+
+
+## Versioning with git
 
 In order to use git to version some parts of the stock, you need to create a file called `.dila-sync-gitwatch` in the script folder **before running `./dila-sync.sh -g`**.
 
@@ -51,8 +60,8 @@ echo "./stock/legi/global/code_et_TNC_en_vigueur/code_en_vigueur/LEGI/TEXT/00/00
 # ...
 ```
 
-## Useful commands
 
+## Useful commands
 
 ### Delete empty directories
 We're not automatically cleaning empty directories after each delta is applied, so every once in a whil it might be a good idea to run the following command in the `stock` directory
@@ -89,6 +98,7 @@ find $find_in -type f -mtime -100 -name "*.xml" -printf "%TD %TR %p\n"
 look_in="./legi/global/code_et_TNC_en_vigueur/code_en_vigueur/LEGI/TEXT/00/00/06/07/40/LEGITEXT000006074068"
 git log -p -1 -s -- $look_in
 ```
+
 
 ## Dev commands
 
