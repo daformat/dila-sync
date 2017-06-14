@@ -410,7 +410,7 @@ do
 		mkdir -p "$script_dir/stock"
 
 		# On global stocks we have to do a pre-check to see if we need to strip_components
-		# "cass" and "capp" are two examples of stocks containing a timestamp
+		# "cass", "capp", "inca" are two examples of stocks containing a timestamp
 		# as their root folder
 		strip_components=$(tar -tzf "$script_dir/.tmp/$stock" | head -n1 | grep -E "^\d{8}-\d{6}/$" | wc -l)
 		[[ strip_components -gt 0 ]] && echo "${stock_info} ${warn} The archive's root folder containes a timestamp, it will be stripped upon extraction"
