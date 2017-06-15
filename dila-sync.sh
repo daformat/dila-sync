@@ -635,6 +635,11 @@ do
 
 	# Recap
 	# -----
+	if [ $fresh_deltas_count -gt 0 ]
+	then
+		stock_info="${txtbld}${txtpnk}[ ${txtcyn}•${txtpnk} $stock_to_sync ]${txtrst}"
+	fi
+
 	echo
 	echo "$info ${txtbld}Done synchronizing${txtrst} $stock_info"
 	[[ $fresh_deltas_count -gt 0 ]] && col=$txtgrn || col=$txtpnk
@@ -644,12 +649,7 @@ do
 	echo
 
 	# Save status
-	if [ $fresh_deltas_count -gt 0 ]
-	then
-		synced_stocks_status="$synced_stocks_status${txtbld}${txtcyn}[ • $stock_to_sync ]${txtrst} "
-	else
-		synced_stocks_status="$synced_stocks_status$stock_info "
-	fi
+	synced_stocks_status="$synced_stocks_status$stock_info "
 done
 
 # Completed - All stocks were synced
