@@ -468,7 +468,7 @@ do
 					# Replace previous line if not in verbose mode
 					echo -n "\r\033[K$git_msg"
 				fi
-				g=$(git init "$script_dir/$git_watch_dir" && git -C "$script_dir/$git_watch_dir" add . && git -C "$script_dir/$git_watch_dir" commit -m "Init with global stock [$stock_date]")
+				g=$(git init "$script_dir/$git_watch_dir" && git -C "$script_dir/$git_watch_dir" add . && git -C "$script_dir/$git_watch_dir" commit --date "$(format_timestamp $stock_date)" -m "Init with global stock [$stock_date]")
 				# command_status "Error while initializing git repository"
 				let i++
 			done <<< "$stock_git_watch_dirs"
@@ -602,7 +602,7 @@ do
 							# Replace previous line if not in verbose mode
 							echo -n "\r\033[K$git_msg"
 						fi
-						g=$(git -C "$script_dir/$git_watch_dir" add -A && git -C "$script_dir/$git_watch_dir" commit -m "Apply delta [$timestamp]")
+						g=$(git -C "$script_dir/$git_watch_dir" add -A && git -C "$script_dir/$git_watch_dir" commit --date "$(format_timestamp $timestamp)" -m "Apply delta [$timestamp]")
 						# command_status "Error while comitting delta $current_delta/$fresh_deltas_count [$timestamp] in git repository"
 						let i++
 					done <<< "$stock_git_watch_dirs"
