@@ -2,6 +2,17 @@
 
 This script uses [wget](https://www.gnu.org/software/wget/) (required), [git](https://git-scm.com/) (optionnal) and pv (optionnal) to synchronize one or many of the following open data .xml stocks from France's [DILA (Direction de l'Information Légale et Adminsitrative)](http://www.dila.premier-ministre.gouv.fr/) legal datasets (données juridiques).
 
+## Notes
+gnu utils must be installed and available in PATH.
+
+Here are the deps I'm currently running the script with:
+- sed (GNU sed) 4.4
+- GNU Wget 1.19.2
+- pv 1.6.6
+- tar (GNU tar) 1.30
+- git version 2.15.1
+- grep (BSD grep) 2.5.1-FreeBSD (**default macOS grep**)
+
 
 ## Supported legal open datasets
 
@@ -27,6 +38,12 @@ For a more detailed explanation, view [Licences données juridiques (page in fre
 
 ```shell
 ./dila-sync.sh [-hgv] [-l rate_limit] stock_name [stock_name...]
+```
+
+```shell
+# Let's say you want to sync each and every stock and you did setup
+# a .dila-sync-gitwatch file listing the directories to be versionned
+./dila-sync.sh -g legi capp cass cnil constit inca jade kali sarde
 ```
 
 ### Options
