@@ -332,7 +332,7 @@ do
 
 	echo -n "$stock_info Fetching stock and deltas... "
 	wgetoutput=$(wget $(limit_rate_opts) -T 10 -q -O - $stock_remote)
-	command_status "Error while getting remote data."
+	command_status "Error while getting remote data ($stock_remote)."
 
 	# Now let's get only the actual urls
 	listing=$(echo $wgetoutput | grep -o 'href="[^"]*"' | sed 's/href="\([^"]*\)"/\1/g')
