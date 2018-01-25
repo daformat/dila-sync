@@ -7,7 +7,7 @@ gnu utils must be installed and available in PATH.
 
 Here are the deps I'm currently running the script with:
 - sed (GNU sed) 4.4
-- GNU Wget 1.19.2
+- GNU Wget 1.19.2
 - pv 1.6.6
 - tar (GNU tar) 1.30
 - git version 2.15.1
@@ -55,7 +55,7 @@ For a more detailed explanation, view [Licences données juridiques (page in fre
 
 ### Arguments
 **`stock_name`**  
-You have to provide at least one `stock_name` for `dila-sync` to synchronize it, see the list above for the supported stocks. `stock_name` can be either uppercase, lowercase, or a mix of it if you're feeling funky.
+You have to provide at least one `stock_name` for `dila-sync` to synchronize it, see the list above for the supported stocks. `stock_name` can be either uppercase, lowercase, or a mix of both if you're feeling funky.
 
 
 ## Versioning with git
