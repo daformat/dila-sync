@@ -1,6 +1,8 @@
 # Dila-sync
 
-This script uses [wget](https://www.gnu.org/software/wget/) (required), [git](https://git-scm.com/) (optionnal) and pv (optionnal) to synchronize one or many of the following open data .xml stocks from France's [DILA (Direction de l'Information Légale et Adminsitrative)](http://www.dila.premier-ministre.gouv.fr/) legal datasets (données juridiques).
+This **zsh script** uses [wget](https://www.gnu.org/software/wget/) (required), [git](https://git-scm.com/) (optionnal) and pv (optionnal) to synchronize one or many of the following open data .xml stocks from France's [DILA (Direction de l'Information Légale et Adminsitrative)](http://www.dila.premier-ministre.gouv.fr/) legal datasets (données juridiques).
+
+It is mostly intended for private use, but might be helpful to other people interested in syncing DILA datasets, however, it requires a few specfic dependencies (like BSD grep) to work properly, as is. Feel free to improve and create a pull request if you do.
 
 ## Notes
 gnu utils must be installed and available in PATH.
