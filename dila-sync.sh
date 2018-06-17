@@ -97,7 +97,7 @@ typeset -A config
 
 # Default config
 config=(
-	remote "ftp://ftp2.journal-officiel.gouv.fr:21/"
+	remote "ftp://echanges.dila.gouv.fr:21/"
 	use_git $use_git
 )
 
@@ -341,7 +341,7 @@ do
 	echo $txtrst
 
 	# Get global stock filename
-	stock=$(echo $listing | grep -E "^${stock_remote}Freemium_${stock_to_sync}_" | sed "s@$stock_remote@@")
+	stock=$(echo $listing | grep -iE "^${stock_remote}Freemium_${stock_to_sync}_" | sed "s@$stock_remote@@")
 	stock_date=$(get_timestamp $stock)
 	if [ $local_stock_date -eq 0 ]
 	then
@@ -352,7 +352,7 @@ do
 	echo "${txtcyn}$stock [$(format_timestamp $stock_date)]${txtrst}\n"
 
 	# Get deltas list
-	deltas=$(echo $listing | grep -E "^${stock_remote}${stock_to_sync}_" | sed "s@${stock_remote}@@g")
+	deltas=$(echo $listing | grep -iE "^${stock_remote}${stock_to_sync}_" | sed "s@${stock_remote}@@g")
 
 	# Count them
 	if [ -z $deltas ]
