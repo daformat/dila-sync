@@ -187,14 +187,14 @@ command_status () {
 get_applied_deltas_for_stock () {
 	if [ -r "$conf_dir/applied-deltas" ]
 	then
-		cat "$conf_dir/applied-deltas" | grep "	${1}_" | cut -f1 | sed 's/^\s*$//g'
+		cat "$conf_dir/applied-deltas" | grep -i "	${1}_" | cut -f1 | sed 's/^\s*$//g'
 	fi
 }
 
 get_last_global_import_for_stock () {
 	if [ -r "$conf_dir/stocks" ]
 	then
-		cat "$conf_dir/stocks" | grep "	Freemium_${1}_" | tail -n1 | cut -f1 | sed 's/^\s*$//g'
+		cat "$conf_dir/stocks" | grep -i "	Freemium_${1}_" | tail -n1 | cut -f1 | sed 's/^\s*$//g'
 	fi
 }
 
