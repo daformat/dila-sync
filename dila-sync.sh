@@ -482,6 +482,8 @@ do
 		# Done with global stock
 		# Save original stock timestamp and archive name in .dila-sync/stocks
 		echo "$stock_date	$stock">>"$conf_dir/stocks"
+		echo "Deleting stock archive"
+		rm "$script_dir/.tmp/$stock"
 	fi
 
 	# Deltas
@@ -621,6 +623,8 @@ do
 				# Done, the current delta was applied
 				echo
 				echo "$stock_info ${ok} ${txtbld}Done applying delta $current_delta/$fresh_deltas_count [$timestamp]${txtrst}"
+				echo "Deleting delta archive"
+				rm "$script_dir/.tmp/$delta"
 
 			# If current_delta is perished we just state it but don't process it
 			else
