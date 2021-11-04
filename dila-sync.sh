@@ -340,7 +340,6 @@ do
 	echo "$( echo $listing | wc -l) files found"
 	echo $txtrst
 
-echo "next"
 	# Get global stock filename
 	stock=$(echo $listing | grep -iE "^Freemium_${stock_to_sync}_" | sed "s@$stock_remote@@")
 	stock_date=$(get_timestamp $stock)
@@ -348,10 +347,10 @@ echo "next"
 	then
 		local_stock_date=$stock_date
 	fi
-echo "next"
+
 	echo "${txtund}Global stock:${txtrst}"
 	echo "${txtcyn}$stock [$(format_timestamp $stock_date)]${txtrst}\n"
-echo "next"
+
 	# Get deltas list
 	deltas=$(echo $listing | grep -iE "^${stock_to_sync}_" | sed "s@${stock_remote}@@g")
 
