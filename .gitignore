@@ -4,3 +4,6 @@
 logs/
 stock/
 .*
+with-remote.txt.sorted
+with-remote.txt
+push-repos.sh
